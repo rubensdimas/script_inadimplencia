@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import Debito, Entidade, Snapshot
 from app.normalize import normalize_nome
 from app.parsers.csv_parser import parse_csv
+from app.parsers.xlsx_parser import parse_xlsx
 from app.snapshot_date import extrair_data_snapshot
 
 
@@ -80,6 +81,46 @@ def ingerir_csv(sessao: Session, nome_arquivo: str, conteudo: bytes) -> Snapshot
                 situacao_parcelamento=registro.situacao_parcelamento,
             )
         )
+
+    sessao.commit()
+    sessao.refresh(snapshot)
+    return snapshot
+
+
+def ingerir_xlsx(sessao: Session, nome_arquivo: str, conteudo: bytes) -> Snapshot:
+    snapshot = _criar_snapshot(sessao, "xlsx", nome_arquivo, conteudo)
+
+    cache_entidades: dict[str, Entidade] = {}
+    for registro in parse_xlsx(conteudo):
+        entidade = _buscar_ou_criar_entidade(
+            sessao,
+            cache_entidades,
+            registro.nome_original,
+            extras={
+                "cpf_cnpj": registro.cpf_cnpj,
+                "tipo_pessoa": registro.tipo_pessoa,
+                "categoria": registro.categoria,
+                "subregiao": registro.subregiao,
+                "situacao_registro": registro.situacao_registro,
+            },
+        )
+        for debito in registro.debitos:
+            sessao.add(
+                Debito(
+                    snapshot_id=snapshot.id,
+                    entidade_id=entidade.id,
+                    origem="xlsx",
+                    ano_referencia=debito.ano_referencia,
+                    tipo_debito=debito.tipo_debito,
+                    data_vencimento=debito.data_vencimento,
+                    valor_original=debito.valor_original,
+                    valor_devido=debito.valor_devido,
+                    valor_total=debito.valor_total,
+                    situacao_pagamento=debito.situacao_pagamento,
+                    situacao_divida_ativa=debito.situacao_divida_ativa,
+                    situacao_parcelamento=debito.situacao_parcelamento,
+                )
+            )
 
     sessao.commit()
     sessao.refresh(snapshot)
