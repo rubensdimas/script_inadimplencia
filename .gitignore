@@ -4,6 +4,8 @@ node_modules/
 .env
 .superpowers/
 .worktrees/
+frontend/dist/
+*.tsbuildinfo
 
 # Relatórios brutos de inadimplência contêm CPF/CNPJ e dados financeiros reais —
 # nunca versionar, só usar como entrada local para upload manual.
