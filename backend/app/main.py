@@ -2,11 +2,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.errors import ErroIngestao
-from app.routers import snapshots, uploads
+from app.routers import analytics, snapshots, uploads
 
 app = FastAPI(title="Inadimplência CREFITO11")
 app.include_router(uploads.roteador)
 app.include_router(snapshots.roteador)
+app.include_router(analytics.roteador)
 
 
 @app.exception_handler(ErroIngestao)
