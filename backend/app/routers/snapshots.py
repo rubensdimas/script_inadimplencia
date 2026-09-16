@@ -1,12 +1,13 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_sessao
 from app.models import Debito, ObservacaoEntidade, Snapshot
 from app.schemas import PaginaDebitosOut, SnapshotOut
+from app.services.ingestion import contar_debitos_do_snapshot
 
 roteador = APIRouter(prefix="/api/snapshots", tags=["snapshots"])
 
@@ -33,9 +34,7 @@ def listar_debitos(
         raise HTTPException(status_code=404, detail="snapshot nao encontrado")
 
     filtro = ObservacaoEntidade.snapshot_id == snapshot_id
-    total = sessao.scalar(
-        select(func.count(Debito.id)).join(ObservacaoEntidade).where(filtro)
-    ) or 0
+    total = contar_debitos_do_snapshot(sessao, snapshot_id)
     itens = sessao.scalars(
         select(Debito)
         .join(ObservacaoEntidade)

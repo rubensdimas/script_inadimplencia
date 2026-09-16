@@ -80,15 +80,18 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
         raise ErroIngestao(f"colunas cadastrais ausentes: {', '.join(sorted(ausentes))}")
 
     registros = []
-    for linha in linhas:
+    linhas_sem_documento: list[str] = []
+    for numero, linha in enumerate(linhas, start=2):
         if not linha or not linha[indice["NomeRazaoSocial"]]:
             continue
 
+        nome = str(linha[indice["NomeRazaoSocial"]]).strip()
         cpf_cnpj = _texto(linha[indice["CPFCNPJ"]])
         if cpf_cnpj is None:
-            raise ErroIngestao("registro XLSX sem CPF/CNPJ")
+            linhas_sem_documento.append(f"linha {numero} ({nome})")
+            continue
         registro = RegistroXlsx(
-            nome_original=str(linha[indice["NomeRazaoSocial"]]).strip(),
+            nome_original=nome,
             cpf_cnpj=cpf_cnpj,
             tipo_pessoa=_texto(linha[indice["TipoPessoa"]]),
             categoria=_texto(linha[indice["Categoria"]]),
@@ -122,6 +125,8 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
 
         registros.append(registro)
 
+    if linhas_sem_documento:
+        raise ErroIngestao("registros XLSX sem CPF/CNPJ: " + "; ".join(linhas_sem_documento))
     if not registros:
         raise ErroIngestao("arquivo XLSX sem registros validos")
     return registros

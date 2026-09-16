@@ -12,8 +12,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if argumentos.comando == "reprocessar-snapshots":
         with SessionLocal() as sessao:
-            total = reprocessar_todos_snapshots(sessao)
-        print(f"{total} snapshot(s) reprocessado(s)")
+            resultado = reprocessar_todos_snapshots(sessao)
+        print(f"{len(resultado.sucesso)} snapshot(s) reprocessado(s)")
+        for snapshot_id, erro in resultado.falhas.items():
+            print(f"snapshot {snapshot_id} falhou: {erro}")
+        return 1 if resultado.falhas else 0
     return 0
 
 

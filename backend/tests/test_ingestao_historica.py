@@ -1,7 +1,7 @@
 import os
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -124,6 +124,46 @@ def test_reprocessamento_reverte_quando_contagem_persistida_diverge(cliente, mon
             ingestion.reprocessar_snapshot(sessao, snapshot_modelo)
 
     assert _debitos(cliente, snapshot["id"]) == antes
+
+
+def test_reprocessamento_isola_falha_de_um_snapshot_e_continua_os_demais(cliente, tmp_path, monkeypatch):
+    monkeypatch.setenv("RAW_UPLOADS_DIR", str(tmp_path))
+
+    primeiro = _upload_xlsx(
+        cliente,
+        "boa1_20260915_100000.xlsx",
+        [_linha_xlsx("12345678901", "ANA LIMA", "ATIVO", "REG 1")],
+    )
+
+    conteudo_ruim = construir_xlsx_registros(
+        [_linha_xlsx(None, "SEM DOCUMENTO", "ATIVO", "REG 2")]
+    )
+    caminho_ruim = tmp_path / "snapshot-legado-sem-documento.xlsx"
+    caminho_ruim.write_bytes(conteudo_ruim)
+    with SessionLocal() as sessao:
+        snapshot_ruim = Snapshot(
+            tipo_arquivo="xlsx",
+            nome_arquivo_original="legado-sem-documento.xlsx",
+            caminho_arquivo_bruto=str(caminho_ruim),
+            data_snapshot=datetime(2026, 9, 14),
+            data_upload=datetime(2026, 9, 14),
+        )
+        sessao.add(snapshot_ruim)
+        sessao.commit()
+        id_ruim = snapshot_ruim.id
+
+    terceiro = _upload_xlsx(
+        cliente,
+        "boa3_20260917_100000.xlsx",
+        [_linha_xlsx("98765432100", "JOAO SILVA", "ATIVO", "REG 3")],
+    )
+
+    with SessionLocal() as sessao:
+        resultado = ingestion.reprocessar_todos_snapshots(sessao)
+
+    assert resultado.sucesso == [primeiro["id"], terceiro["id"]]
+    assert list(resultado.falhas.keys()) == [id_ruim]
+    assert "CPF/CNPJ" in resultado.falhas[id_ruim]
 
 
 def test_documento_canoniza_aliases_e_separa_homonimos(cliente):

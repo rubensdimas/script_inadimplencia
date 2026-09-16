@@ -1,5 +1,6 @@
 import os
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -91,9 +92,7 @@ def _entidade_por_documento(
     return entidade
 
 
-def _persistir_csv(
-    sessao: Session, snapshot: Snapshot, registros: Sequence[RegistroCsv]
-) -> tuple[int, int]:
+def _persistir_csv(sessao: Session, snapshot: Snapshot, registros: Sequence[RegistroCsv]) -> None:
     cache: dict[str, ObservacaoEntidade] = {}
     for registro in registros:
         observacao = _observacao_csv(sessao, snapshot, cache, registro.nome_original)
@@ -108,14 +107,10 @@ def _persistir_csv(
                 situacao_parcelamento=registro.situacao_parcelamento,
             )
         )
-    return len(cache), len(registros)
 
 
-def _persistir_xlsx(
-    sessao: Session, snapshot: Snapshot, registros: Sequence[RegistroXlsx]
-) -> tuple[int, int]:
+def _persistir_xlsx(sessao: Session, snapshot: Snapshot, registros: Sequence[RegistroXlsx]) -> None:
     cache_entidades: dict[str, Entidade] = {}
-    total_debitos = 0
     for registro in registros:
         documento = normalizar_documento(registro.cpf_cnpj)
         entidade = (
@@ -154,8 +149,6 @@ def _persistir_xlsx(
                     situacao_parcelamento=debito.situacao_parcelamento,
                 )
             )
-            total_debitos += 1
-    return len(registros), total_debitos
 
 
 def _ingerir(
@@ -197,6 +190,17 @@ def ingerir_xlsx(sessao: Session, nome_arquivo: str, conteudo: bytes) -> Snapsho
     return _ingerir(sessao, "xlsx", nome_arquivo, conteudo, registros)
 
 
+def contar_debitos_do_snapshot(sessao: Session, snapshot_id: int) -> int:
+    return (
+        sessao.scalar(
+            select(func.count(Debito.id))
+            .join(ObservacaoEntidade)
+            .where(ObservacaoEntidade.snapshot_id == snapshot_id)
+        )
+        or 0
+    )
+
+
 def reprocessar_snapshot(sessao: Session, snapshot: Snapshot) -> None:
     caminho = Path(snapshot.caminho_arquivo_bruto)
     if not caminho.is_file():
@@ -225,11 +229,7 @@ def reprocessar_snapshot(sessao: Session, snapshot: Snapshot) -> None:
                 ObservacaoEntidade.snapshot_id == snapshot.id
             )
         ) or 0
-        debitos_persistidos = sessao.scalar(
-            select(func.count(Debito.id))
-            .join(ObservacaoEntidade)
-            .where(ObservacaoEntidade.snapshot_id == snapshot.id)
-        ) or 0
+        debitos_persistidos = contar_debitos_do_snapshot(sessao, snapshot.id)
         if (observacoes_persistidas, debitos_persistidos) != (
             esperado_observacoes,
             esperado_debitos,
@@ -241,8 +241,20 @@ def reprocessar_snapshot(sessao: Session, snapshot: Snapshot) -> None:
         raise
 
 
-def reprocessar_todos_snapshots(sessao: Session) -> int:
+@dataclass
+class ResultadoReprocessamento:
+    sucesso: list[int] = field(default_factory=list)
+    falhas: dict[int, str] = field(default_factory=dict)
+
+
+def reprocessar_todos_snapshots(sessao: Session) -> ResultadoReprocessamento:
     snapshots = sessao.scalars(select(Snapshot).order_by(Snapshot.id)).all()
+    resultado = ResultadoReprocessamento()
     for snapshot in snapshots:
-        reprocessar_snapshot(sessao, snapshot)
-    return len(snapshots)
+        try:
+            reprocessar_snapshot(sessao, snapshot)
+        except Exception as exc:
+            resultado.falhas[snapshot.id] = str(exc)
+        else:
+            resultado.sucesso.append(snapshot.id)
+    return resultado
