@@ -26,6 +26,7 @@ from app.schemas import (
     IndicadoresDashboardOut,
     NomeAmbiguoOut,
     ObrigacaoExclusivaOut,
+    PendenciasPareamentoOut,
     PontoSerieHistoricaOut,
     RankingObrigacoesItemOut,
     RankingValorTotalItemOut,
@@ -33,6 +34,7 @@ from app.schemas import (
 )
 from app.services.matching import (
     CHAVE_PARCELAMENTO_CSV,
+    NomeAmbiguo,
     chave_obrigacao,
     esta_parcelado_csv,
     esta_parcelado_xlsx,
@@ -63,6 +65,34 @@ def _debito_esta_aberto(debito: Debito) -> bool:
 
 def _tem_debito_aberto(observacao: ObservacaoEntidade) -> bool:
     return any(_debito_esta_aberto(debito) for debito in observacao.debitos)
+
+
+def _construir_nomes_ambiguos(ambiguas: list[NomeAmbiguo]) -> list[NomeAmbiguoOut]:
+    return [
+        NomeAmbiguoOut(
+            nome_normalizado=ambiguo.observacao_csv.nome_normalizado,
+            nome_csv=EntidadeResumoOut.model_validate(ambiguo.observacao_csv),
+            candidatos_xlsx=[
+                EntidadeResumoOut.model_validate(candidato) for candidato in ambiguo.candidatos_xlsx
+            ],
+        )
+        for ambiguo in ambiguas
+    ]
+
+
+def montar_pendencias_pareamento(
+    sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: int
+) -> PendenciasPareamentoOut:
+    """Pendencias de pareamento (spec story 22): nomes que nao bateram exatamente
+    entre CSV e XLSX no par de snapshots selecionado, agrupados para revisao manual."""
+    pareamento = parear_snapshots(sessao, csv_snapshot_id, xlsx_snapshot_id)
+    return PendenciasPareamentoOut(
+        csv_snapshot_id=csv_snapshot_id,
+        xlsx_snapshot_id=xlsx_snapshot_id,
+        somente_csv=[EntidadeResumoOut.model_validate(o) for o in pareamento.somente_csv],
+        somente_xlsx=[EntidadeResumoOut.model_validate(o) for o in pareamento.somente_xlsx],
+        nomes_ambiguos=_construir_nomes_ambiguos(pareamento.ambiguas),
+    )
 
 
 def montar_comparacao(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: int) -> ComparacaoOut:
@@ -112,16 +142,7 @@ def montar_comparacao(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: i
     obrigacoes_somente_xlsx.sort(key=_ordem_obrigacao)
     conflitos.sort(key=lambda item: (item.entidade.nome_normalizado, item.ano_referencia, item.tipo_debito))
 
-    nomes_ambiguos = [
-        NomeAmbiguoOut(
-            nome_normalizado=ambiguo.observacao_csv.nome_normalizado,
-            nome_csv=EntidadeResumoOut.model_validate(ambiguo.observacao_csv),
-            candidatos_xlsx=[
-                EntidadeResumoOut.model_validate(candidato) for candidato in ambiguo.candidatos_xlsx
-            ],
-        )
-        for ambiguo in pareamento.ambiguas
-    ]
+    nomes_ambiguos = _construir_nomes_ambiguos(pareamento.ambiguas)
 
     resumo = ResumoComparacaoOut(
         csv_snapshot_id=csv_snapshot_id,

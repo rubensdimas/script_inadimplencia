@@ -55,6 +55,55 @@ class PaginaDebitosOut(BaseModel):
     pages: int
 
 
+# --- Busca e historico de entidades canonicas ------------------------------
+
+
+class PaginaEntidadesOut(BaseModel):
+    items: list[EntidadeResumoOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+class ObservacaoHistoricoOut(BaseModel):
+    snapshot_id: int
+    tipo_arquivo: str
+    data_snapshot: datetime
+    observacao_id: int
+    nome_original: str
+    nome_normalizado: str
+    cpf_cnpj: str | None
+    tipo_pessoa: str | None
+    registro_resumido: str | None
+    categoria: str | None
+    subregiao: str | None
+    situacao_registro: str | None
+
+
+class DebitoHistoricoOut(BaseModel):
+    id: int
+    snapshot_id: int
+    data_snapshot: datetime
+    origem: str
+    ano_referencia: int
+    tipo_debito: str
+    numero_parcela: int | None
+    data_vencimento: date | None
+    valor_original: Decimal | None
+    valor_devido: Decimal | None
+    valor_total: Decimal | None
+    situacao_pagamento: str | None
+    situacao_divida_ativa: str | None
+    situacao_parcelamento: str | None
+
+
+class EntidadeDetalheOut(BaseModel):
+    entidade: EntidadeResumoOut
+    observacoes: list[ObservacaoHistoricoOut]
+    debitos: list[DebitoHistoricoOut]
+
+
 # --- Comparacao (pareamento CSV x XLSX) ---------------------------------
 
 
@@ -99,6 +148,17 @@ class ComparacaoOut(BaseModel):
     obrigacoes_somente_csv: list[ObrigacaoExclusivaOut]
     obrigacoes_somente_xlsx: list[ObrigacaoExclusivaOut]
     conflitos_parcelamento: list[ConflitoParcelamentoOut]
+    nomes_ambiguos: list[NomeAmbiguoOut]
+
+
+class PendenciasPareamentoOut(BaseModel):
+    """Pendencias de pareamento (spec story 22): nomes que nao bateram exatamente
+    entre CSV e XLSX no par de snapshots selecionado, para revisao manual."""
+
+    csv_snapshot_id: int
+    xlsx_snapshot_id: int
+    somente_csv: list[EntidadeResumoOut]
+    somente_xlsx: list[EntidadeResumoOut]
     nomes_ambiguos: list[NomeAmbiguoOut]
 
 

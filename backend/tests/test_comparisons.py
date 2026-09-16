@@ -300,3 +300,72 @@ def test_comparacao_snapshot_inexistente_retorna_404(cliente):
         "/api/comparisons", params={"csv_snapshot_id": 999999, "xlsx_snapshot_id": xlsx["id"]}
     )
     assert resposta.status_code == 404
+
+
+# --- /api/matching-issues (spec story 22) ----------------------------------
+
+
+def test_matching_issues_agrupa_pendencias_de_pareamento(cliente):
+    csv, xlsx = _preparar_par_completo(cliente)
+
+    resposta = cliente.get(
+        "/api/matching-issues", params={"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": xlsx["id"]}
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+
+    assert corpo["csv_snapshot_id"] == csv["id"]
+    assert corpo["xlsx_snapshot_id"] == xlsx["id"]
+
+    assert [e["nome_normalizado"] for e in corpo["somente_csv"]] == ["SOMENTE CSV PESSOA"]
+    assert [e["nome_normalizado"] for e in corpo["somente_xlsx"]] == ["SOMENTE XLSX PESSOA"]
+
+    assert len(corpo["nomes_ambiguos"]) == 1
+    ambiguo = corpo["nomes_ambiguos"][0]
+    assert ambiguo["nome_normalizado"] == "CARLOS SOUZA"
+    assert len(ambiguo["candidatos_xlsx"]) == 2
+
+    # Documentos completos nunca aparecem, nem os de nomes ambiguos.
+    assert "66666666666" not in str(corpo)
+    assert "77777777777" not in str(corpo)
+
+
+def test_matching_issues_usa_snapshots_mais_recentes_quando_ids_omitidos(cliente):
+    _upload_csv(cliente, "csv_antigo.csv", ["ANTIGO;ANUIDADE;2025;0;01/01/2025;Débito"])
+    _upload_xlsx(
+        cliente,
+        "xlsx_antigo_20260101_100000.xlsx",
+        [_linha_xlsx("11111111111", "ANTIGO XLSX", debitos=[{"ano": 2025, "tipo": "ANUIDADE"}])],
+    )
+    csv_recente = _upload_csv(cliente, "csv_recente.csv", ["RECENTE;ANUIDADE;2026;0;01/01/2026;Débito"])
+    xlsx_recente = _upload_xlsx(
+        cliente,
+        "xlsx_recente_20260915_100000.xlsx",
+        [_linha_xlsx("22222222222", "RECENTE XLSX", debitos=[{"ano": 2026, "tipo": "ANUIDADE"}])],
+    )
+
+    resposta = cliente.get("/api/matching-issues")
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+    assert corpo["csv_snapshot_id"] == csv_recente["id"]
+    assert corpo["xlsx_snapshot_id"] == xlsx_recente["id"]
+    assert [e["nome_normalizado"] for e in corpo["somente_csv"]] == ["RECENTE"]
+    assert [e["nome_normalizado"] for e in corpo["somente_xlsx"]] == ["RECENTE XLSX"]
+
+
+def test_matching_issues_snapshot_de_tipo_errado_retorna_422(cliente):
+    csv, xlsx = _preparar_par_completo(cliente)
+
+    resposta = cliente.get(
+        "/api/matching-issues", params={"csv_snapshot_id": xlsx["id"], "xlsx_snapshot_id": xlsx["id"]}
+    )
+    assert resposta.status_code == 422
+
+
+def test_matching_issues_snapshot_inexistente_retorna_404(cliente):
+    csv, xlsx = _preparar_par_completo(cliente)
+
+    resposta = cliente.get(
+        "/api/matching-issues", params={"csv_snapshot_id": 999999, "xlsx_snapshot_id": xlsx["id"]}
+    )
+    assert resposta.status_code == 404
