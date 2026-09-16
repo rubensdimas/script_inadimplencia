@@ -87,6 +87,66 @@ export interface PontoSerieHistorica {
   total_divida_ativa: number;
 }
 
+export interface PaginaEntidadesOut {
+  items: EntidadeResumo[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface ObservacaoHistorico {
+  snapshot_id: number;
+  tipo_arquivo: TipoArquivo;
+  data_snapshot: string;
+  observacao_id: number;
+  nome_original: string;
+  nome_normalizado: string;
+  cpf_cnpj: string | null;
+  tipo_pessoa: string | null;
+  registro_resumido: string | null;
+  categoria: string | null;
+  subregiao: string | null;
+  situacao_registro: string | null;
+}
+
+export interface DebitoHistorico {
+  id: number;
+  snapshot_id: number;
+  data_snapshot: string;
+  origem: TipoArquivo;
+  ano_referencia: number;
+  tipo_debito: string;
+  numero_parcela: number | null;
+  data_vencimento: string | null;
+  valor_original: string | null;
+  valor_devido: string | null;
+  valor_total: string | null;
+  situacao_pagamento: string | null;
+  situacao_divida_ativa: string | null;
+  situacao_parcelamento: string | null;
+}
+
+export interface EntidadeDetalheOut {
+  entidade: EntidadeResumo;
+  observacoes: ObservacaoHistorico[];
+  debitos: DebitoHistorico[];
+}
+
+export interface NomeAmbiguo {
+  nome_normalizado: string;
+  nome_csv: EntidadeResumo;
+  candidatos_xlsx: EntidadeResumo[];
+}
+
+export interface PendenciasPareamentoOut {
+  csv_snapshot_id: number;
+  xlsx_snapshot_id: number;
+  somente_csv: EntidadeResumo[];
+  somente_xlsx: EntidadeResumo[];
+  nomes_ambiguos: NomeAmbiguo[];
+}
+
 export interface DashboardOut {
   indicadores: IndicadoresDashboard;
   ranking_obrigacoes: RankingObrigacoesItem[];

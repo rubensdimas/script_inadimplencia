@@ -3,6 +3,7 @@ import { Nav } from "./components/Nav";
 import { DashboardPage } from "./pages/DashboardPage";
 import { UploadsPage } from "./pages/UploadsPage";
 import { EntidadesPage } from "./pages/EntidadesPage";
+import { EntidadeDetalhePage } from "./pages/EntidadeDetalhePage";
 import { PendenciasPage } from "./pages/PendenciasPage";
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/uploads" element={<UploadsPage />} />
           <Route path="/entidades" element={<EntidadesPage />} />
+          <Route path="/entidades/:id" element={<EntidadeDetalhePage />} />
           <Route path="/pendencias" element={<PendenciasPage />} />
         </Routes>
       </main>

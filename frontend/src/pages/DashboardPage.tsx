@@ -11,6 +11,7 @@ import { DividaAtivaTable } from "../components/DividaAtivaTable";
 import { DistributionBarChart } from "../components/DistributionBarChart";
 import { SituacaoCadastralChart } from "../components/SituacaoCadastralChart";
 import { HistoricoChart } from "../components/HistoricoChart";
+import { ExportButtons } from "../components/ExportButtons";
 import { formatarMoeda, formatarNumero, paraNumero } from "../utils/format";
 
 export function DashboardPage() {
@@ -54,6 +55,14 @@ export function DashboardPage() {
           desabilitado={snapshotsXlsx.isLoading}
         />
       </div>
+
+      {dashboard.data && (
+        <ExportButtons
+          dataset="ranking"
+          rotulo="Exportar ranking"
+          parametros={{ csv_snapshot_id: csvSnapshotId, xlsx_snapshot_id: xlsxSnapshotId }}
+        />
+      )}
 
       {dashboard.isLoading && (
         <p className="estado-carregando" role="status">

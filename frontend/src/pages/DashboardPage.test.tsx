@@ -142,6 +142,25 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("heading", { name: /evolu[cç][aã]o/i })).toBeInTheDocument();
   });
 
+  it("oferece exportacao do ranking preservando os snapshots selecionados", async () => {
+    vi.spyOn(snapshotsApi, "listarSnapshots").mockImplementation((tipo) =>
+      Promise.resolve(tipo === "csv" ? csvSnapshots : xlsxSnapshots),
+    );
+    vi.spyOn(dashboardApi, "obterDashboard").mockResolvedValue(dashboardFixture);
+    const usuario = userEvent.setup();
+
+    renderPagina();
+
+    await waitFor(() => expect(screen.getByText(/csv-a\.csv/)).toBeInTheDocument());
+    await usuario.selectOptions(screen.getByLabelText(/snapshot csv/i), "1");
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: /csv/i });
+      expect(link).toHaveAttribute("href", expect.stringContaining("/api/exports/ranking"));
+      expect(link).toHaveAttribute("href", expect.stringContaining("csv_snapshot_id=1"));
+    });
+  });
+
   it("refaz a consulta do dashboard com o snapshot escolhido no seletor", async () => {
     vi.spyOn(snapshotsApi, "listarSnapshots").mockImplementation((tipo) =>
       Promise.resolve(tipo === "csv" ? csvSnapshots : xlsxSnapshots),

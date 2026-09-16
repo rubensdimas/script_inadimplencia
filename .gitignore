@@ -5,6 +5,9 @@ node_modules/
 .superpowers/
 .worktrees/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 *.tsbuildinfo
 
 # Relatórios brutos de inadimplência contêm CPF/CNPJ e dados financeiros reais —
