@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from io import BytesIO
 
 from openpyxl import load_workbook
@@ -15,9 +16,9 @@ class RegistroDebitoXlsx:
     ano_referencia: int
     tipo_debito: str | None
     data_vencimento: date | None
-    valor_original: float | None
-    valor_devido: float | None
-    valor_total: float | None
+    valor_original: Decimal | None
+    valor_devido: Decimal | None
+    valor_total: Decimal | None
     situacao_pagamento: str | None
     situacao_divida_ativa: str | None
     situacao_parcelamento: str | None
@@ -38,13 +39,14 @@ class RegistroXlsx:
 def _texto(valor) -> str | None:
     if valor in (None, ""):
         return None
-    return str(valor).strip()
+    texto = str(valor).strip()
+    return texto or None
 
 
-def _numero(valor) -> float | None:
+def _numero(valor) -> Decimal | None:
     if valor in (None, ""):
         return None
-    return float(valor)
+    return Decimal(str(valor))
 
 
 def _data(valor) -> date | None:
@@ -82,9 +84,12 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
         if not linha or not linha[indice["NomeRazaoSocial"]]:
             continue
 
+        cpf_cnpj = _texto(linha[indice["CPFCNPJ"]])
+        if cpf_cnpj is None:
+            raise ErroIngestao("registro XLSX sem CPF/CNPJ")
         registro = RegistroXlsx(
             nome_original=str(linha[indice["NomeRazaoSocial"]]).strip(),
-            cpf_cnpj=_texto(linha[indice["CPFCNPJ"]]),
+            cpf_cnpj=cpf_cnpj,
             tipo_pessoa=_texto(linha[indice["TipoPessoa"]]),
             categoria=_texto(linha[indice["Categoria"]]),
             subregiao=_texto(linha[indice["SubRegiao"]]),

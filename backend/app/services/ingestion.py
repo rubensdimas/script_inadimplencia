@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.documentos import normalizar_documento
@@ -174,13 +174,13 @@ def _ingerir(
         else:
             _persistir_xlsx(sessao, snapshot, registros)  # type: ignore[arg-type]
         sessao.commit()
-        sessao.refresh(snapshot)
-        return snapshot
     except Exception:
         sessao.rollback()
         if caminho is not None:
             caminho.unlink(missing_ok=True)
         raise
+    sessao.refresh(snapshot)
+    return snapshot
 
 
 def ingerir_csv(sessao: Session, nome_arquivo: str, conteudo: bytes) -> Snapshot:
@@ -216,10 +216,24 @@ def reprocessar_snapshot(sessao: Session, snapshot: Snapshot) -> None:
     try:
         sessao.execute(delete(ObservacaoEntidade).where(ObservacaoEntidade.snapshot_id == snapshot.id))
         if snapshot.tipo_arquivo == "csv":
-            contagens = _persistir_csv(sessao, snapshot, registros)  # type: ignore[arg-type]
+            _persistir_csv(sessao, snapshot, registros)  # type: ignore[arg-type]
         else:
-            contagens = _persistir_xlsx(sessao, snapshot, registros)  # type: ignore[arg-type]
-        if contagens != (esperado_observacoes, esperado_debitos):
+            _persistir_xlsx(sessao, snapshot, registros)  # type: ignore[arg-type]
+        sessao.flush()
+        observacoes_persistidas = sessao.scalar(
+            select(func.count(ObservacaoEntidade.id)).where(
+                ObservacaoEntidade.snapshot_id == snapshot.id
+            )
+        ) or 0
+        debitos_persistidos = sessao.scalar(
+            select(func.count(Debito.id))
+            .join(ObservacaoEntidade)
+            .where(ObservacaoEntidade.snapshot_id == snapshot.id)
+        ) or 0
+        if (observacoes_persistidas, debitos_persistidos) != (
+            esperado_observacoes,
+            esperado_debitos,
+        ):
             raise ErroIngestao(f"contagens divergentes ao reprocessar snapshot {snapshot.id}")
         sessao.commit()
     except Exception:

@@ -2,14 +2,21 @@ import os
 import subprocess
 import sys
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, engine
-from app.models import Entidade, ObservacaoEntidade
+from app.errors import ErroIngestao
+from app.models import Debito, Entidade, ObservacaoEntidade, Snapshot
+from app.parsers.xlsx_parser import parse_xlsx
+from app.services import ingestion
 from tests.fixture_builders import construir_xlsx_registros
 
 
@@ -42,6 +49,81 @@ def _debitos(cliente, snapshot_id, **params):
     resposta = cliente.get(f"/api/snapshots/{snapshot_id}/debitos", params=params)
     assert resposta.status_code == 200, resposta.text
     return resposta.json()
+
+
+def test_valores_monetarios_xlsx_usam_decimal_sem_erro_binario():
+    conteudo = construir_xlsx_registros(
+        [_linha_xlsx("12345678901", "ANA LIMA", "ATIVO", "REG 1", valor=0.1)]
+    )
+
+    debito = parse_xlsx(conteudo)[0].debitos[0]
+    valores = [debito.valor_original, debito.valor_devido, debito.valor_total]
+
+    assert all(isinstance(valor, Decimal) for valor in valores)
+    assert sum(valores, Decimal("0")) == Decimal("0.3")
+
+
+def test_upload_xlsx_rejeita_documento_em_branco(cliente):
+    conteudo = construir_xlsx_registros(
+        [_linha_xlsx(None, "ANA LIMA", "ATIVO", "REG 1")]
+    )
+
+    resposta = cliente.post(
+        "/api/uploads/xlsx",
+        files={"arquivo": ("sem-documento.xlsx", conteudo, "application/octet-stream")},
+    )
+
+    assert resposta.status_code == 422
+    assert cliente.get("/api/snapshots").json() == []
+
+
+def test_falha_apos_commit_nao_remove_arquivo_bruto_confirmado(cliente, tmp_path, monkeypatch):
+    monkeypatch.setenv("RAW_UPLOADS_DIR", str(tmp_path))
+    refresh_original = Session.refresh
+
+    def falhar_ao_atualizar_snapshot(sessao, instancia, *args, **kwargs):
+        if isinstance(instancia, Snapshot):
+            raise RuntimeError("falha sintetica depois do commit")
+        return refresh_original(sessao, instancia, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "refresh", falhar_ao_atualizar_snapshot)
+    conteudo = b"ANA LIMA;ANUIDADE;2024;0;15/03/2024;Debito\n"
+
+    with pytest.raises(RuntimeError, match="depois do commit"):
+        cliente.post(
+            "/api/uploads/csv",
+            files={"arquivo": ("persistido.csv", conteudo, "text/csv")},
+        )
+
+    with SessionLocal() as sessao:
+        snapshot = sessao.scalar(select(Snapshot))
+        assert snapshot is not None
+        assert Path(snapshot.caminho_arquivo_bruto).is_file()
+
+
+def test_reprocessamento_reverte_quando_contagem_persistida_diverge(cliente, monkeypatch):
+    snapshot = _upload_xlsx(
+        cliente,
+        "reprocessar-divergencia_20260915_100000.xlsx",
+        [_linha_xlsx("12345678901", "ANA LIMA", "ATIVO", "REG 1")],
+    )
+    antes = _debitos(cliente, snapshot["id"])
+    persistir_original = ingestion._persistir_xlsx
+
+    def persistir_sem_um_debito(sessao, snapshot_modelo, registros):
+        contagens = persistir_original(sessao, snapshot_modelo, registros)
+        debito_pendente = next(item for item in sessao.new if isinstance(item, Debito))
+        debito_pendente.observacao.debitos.remove(debito_pendente)
+        return contagens
+
+    monkeypatch.setattr(ingestion, "_persistir_xlsx", persistir_sem_um_debito)
+
+    with SessionLocal() as sessao:
+        snapshot_modelo = sessao.get(Snapshot, snapshot["id"])
+        with pytest.raises(ErroIngestao, match="contagens divergentes"):
+            ingestion.reprocessar_snapshot(sessao, snapshot_modelo)
+
+    assert _debitos(cliente, snapshot["id"]) == antes
 
 
 def test_documento_canoniza_aliases_e_separa_homonimos(cliente):
@@ -255,3 +337,82 @@ def test_migracao_preserva_snapshots_e_converte_dados_legados(cliente):
     assert linhas[1][1] is not None
     assert linhas[1][2] == "123.456.789-01"
     assert proximo_debito == 3
+
+
+def test_migracao_upgrade_direto_a_partir_de_banco_legado_sem_alembic_version(cliente):
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conexao:
+        conexao.execute(text("DROP SCHEMA public CASCADE"))
+        conexao.execute(text("CREATE SCHEMA public"))
+
+    with engine.begin() as conexao:
+        conexao.execute(
+            text(
+                "CREATE TABLE snapshots ("
+                "id SERIAL PRIMARY KEY, tipo_arquivo VARCHAR(10) NOT NULL, "
+                "nome_arquivo_original VARCHAR(255) NOT NULL, caminho_arquivo_bruto VARCHAR(500) NOT NULL, "
+                "data_snapshot TIMESTAMP NOT NULL, data_upload TIMESTAMP NOT NULL)"
+            )
+        )
+        conexao.execute(
+            text(
+                "CREATE TABLE entidades ("
+                "id SERIAL PRIMARY KEY, nome_normalizado VARCHAR(255) NOT NULL, "
+                "nome_original VARCHAR(255) NOT NULL, cpf_cnpj VARCHAR(20), tipo_pessoa VARCHAR(20), "
+                "categoria VARCHAR(50), subregiao VARCHAR(100), situacao_registro VARCHAR(50))"
+            )
+        )
+        conexao.execute(
+            text(
+                "CREATE UNIQUE INDEX ix_entidades_nome_normalizado ON entidades (nome_normalizado)"
+            )
+        )
+        conexao.execute(
+            text(
+                "CREATE TABLE debitos ("
+                "id SERIAL PRIMARY KEY, snapshot_id INTEGER NOT NULL REFERENCES snapshots(id), "
+                "entidade_id INTEGER NOT NULL REFERENCES entidades(id), origem VARCHAR(10) NOT NULL, "
+                "ano_referencia INTEGER NOT NULL, tipo_debito VARCHAR(50) NOT NULL, numero_parcela INTEGER, "
+                "data_vencimento DATE, valor_original NUMERIC(12, 2), valor_devido NUMERIC(12, 2), "
+                "valor_total NUMERIC(12, 2), situacao_pagamento VARCHAR(50), situacao_divida_ativa VARCHAR(50), "
+                "situacao_parcelamento VARCHAR(50))"
+            )
+        )
+        conexao.execute(
+            text(
+                "INSERT INTO snapshots "
+                "(id, tipo_arquivo, nome_arquivo_original, caminho_arquivo_bruto, data_snapshot, data_upload) "
+                "VALUES (1, 'xlsx', 'legado.xlsx', '/tmp/legado.xlsx', '2026-09-14', '2026-09-14')"
+            )
+        )
+        conexao.execute(
+            text(
+                "INSERT INTO entidades "
+                "(id, nome_normalizado, nome_original, cpf_cnpj, tipo_pessoa, categoria, subregiao, situacao_registro) "
+                "VALUES (1, 'ANA LIMA', 'Ana Lima', '123.456.789-01', 'Profissional', "
+                "'PROFISSIONAL', 'DISTRITO FEDERAL', 'ATIVO')"
+            )
+        )
+        conexao.execute(
+            text(
+                "INSERT INTO debitos (id, snapshot_id, entidade_id, origem, ano_referencia, tipo_debito) "
+                "VALUES (1, 1, 1, 'xlsx', 2024, 'ANUIDADE')"
+            )
+        )
+
+    with engine.connect() as conexao:
+        assert not sa_inspect(conexao).has_table("alembic_version")
+
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    command.upgrade(config, "head")
+
+    with engine.connect() as conexao:
+        assert conexao.scalar(text("SELECT version_num FROM alembic_version")) == "0002_historical_observations"
+        assert conexao.scalar(text("SELECT count(*) FROM snapshots")) == 1
+        assert conexao.scalar(text("SELECT count(*) FROM debitos")) == 1
+        assert conexao.scalar(text("SELECT count(*) FROM observacoes_entidades")) == 1
+        assert conexao.scalar(text("SELECT count(*) FROM entidades")) == 1
+        observacao = conexao.execute(
+            text("SELECT entidade_id, cpf_cnpj FROM observacoes_entidades")
+        ).one()
+        assert observacao.entidade_id is not None
+        assert observacao.cpf_cnpj == "123.456.789-01"
