@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -41,7 +41,7 @@ def _buscar_ou_criar_entidade(
 
 
 def _criar_snapshot(sessao: Session, tipo_arquivo: str, nome_arquivo: str, conteudo: bytes) -> Snapshot:
-    agora = datetime.utcnow()
+    agora = datetime.now(timezone.utc).replace(tzinfo=None)
     snapshot = Snapshot(
         tipo_arquivo=tipo_arquivo,
         nome_arquivo_original=nome_arquivo,
