@@ -145,10 +145,21 @@ class DistribuicaoTipoOut(BaseModel):
     valor_total: float
 
 
-class DistribuicaoSituacaoOut(BaseModel):
+class DistribuicaoSituacaoPagamentoOut(BaseModel):
     situacao_pagamento: str
     quantidade: int
     valor_total: float
+
+
+class DistribuicaoSituacaoCadastralOut(BaseModel):
+    """Situacao cadastral (ObservacaoEntidade.situacao_registro) cruzada com a existencia de
+    debito em aberto no snapshot XLSX escolhido -- ex.: profissionais BAIXADOS que ainda
+    possuem divida pendente (spec story 18)."""
+
+    situacao_registro: str
+    total_entidades: int
+    total_com_debito_aberto: int
+    total_sem_debito_aberto: int
 
 
 class PontoSerieHistoricaOut(BaseModel):
@@ -166,5 +177,6 @@ class DashboardOut(BaseModel):
     divida_ativa: list[DebitoDividaAtivaOut]
     distribuicao_ano: list[DistribuicaoAnoOut]
     distribuicao_tipo: list[DistribuicaoTipoOut]
-    distribuicao_situacao: list[DistribuicaoSituacaoOut]
+    distribuicao_situacao_pagamento: list[DistribuicaoSituacaoPagamentoOut]
+    distribuicao_situacao_cadastral: list[DistribuicaoSituacaoCadastralOut]
     serie_historica_xlsx: list[PontoSerieHistoricaOut]

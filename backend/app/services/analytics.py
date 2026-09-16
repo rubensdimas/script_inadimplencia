@@ -19,7 +19,8 @@ from app.schemas import (
     DashboardOut,
     DebitoDividaAtivaOut,
     DistribuicaoAnoOut,
-    DistribuicaoSituacaoOut,
+    DistribuicaoSituacaoCadastralOut,
+    DistribuicaoSituacaoPagamentoOut,
     DistribuicaoTipoOut,
     EntidadeResumoOut,
     IndicadoresDashboardOut,
@@ -41,10 +42,27 @@ from app.services.matching import (
 
 _PRIORIDADE_DIVIDA_ATIVA = {normalize_nome("Executiva"): 0, normalize_nome("Administrativa"): 1}
 _SEM_SITUACAO_PAGAMENTO = "NAO_INFORMADO"
+_SEM_SITUACAO_REGISTRO = "NAO_INFORMADO"
+_CHAVE_PAGO = normalize_nome("Pago")
 
 
 def _em_divida_ativa(situacao: str | None) -> bool:
     return situacao is not None and normalize_nome(situacao) in _PRIORIDADE_DIVIDA_ATIVA
+
+
+def _debito_esta_aberto(debito: Debito) -> bool:
+    """Um debito conta como "em aberto" a menos que a fonte marque explicitamente 'Pago'.
+
+    Situacao desconhecida (None) e tratada como aberta: numa ferramenta de inadimplencia, um
+    registro sem status de pagamento nao deve ser lido como quitado.
+    """
+    if debito.situacao_pagamento is None:
+        return True
+    return normalize_nome(debito.situacao_pagamento) != _CHAVE_PAGO
+
+
+def _tem_debito_aberto(observacao: ObservacaoEntidade) -> bool:
+    return any(_debito_esta_aberto(debito) for debito in observacao.debitos)
 
 
 def montar_comparacao(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: int) -> ComparacaoOut:
@@ -203,12 +221,19 @@ def montar_dashboard(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: in
     tipo_valor: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
     situacao_qtd: dict[str, int] = defaultdict(int)
     situacao_valor: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    situacao_cadastral_total: dict[str, int] = defaultdict(int)
+    situacao_cadastral_aberto: dict[str, int] = defaultdict(int)
 
     for observacao in observacoes:
         entidade_out = EntidadeResumoOut.model_validate(observacao)
         obrigacoes_distintas = {chave_obrigacao(debito) for debito in observacao.debitos}
         total_obrigacoes += len(obrigacoes_distintas)
         ranking_obrigacoes_dados.append((entidade_out, len(obrigacoes_distintas)))
+
+        situacao_registro = observacao.situacao_registro or _SEM_SITUACAO_REGISTRO
+        situacao_cadastral_total[situacao_registro] += 1
+        if _tem_debito_aberto(observacao):
+            situacao_cadastral_aberto[situacao_registro] += 1
 
         valor_entidade = Decimal("0")
         for debito in observacao.debitos:
@@ -291,13 +316,24 @@ def montar_dashboard(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: in
             DistribuicaoTipoOut(tipo_debito=tipo, quantidade=tipo_qtd[tipo], valor_total=tipo_valor[tipo])
             for tipo in sorted(tipo_qtd, key=lambda tipo: (-tipo_qtd[tipo], tipo))
         ],
-        distribuicao_situacao=[
-            DistribuicaoSituacaoOut(
+        distribuicao_situacao_pagamento=[
+            DistribuicaoSituacaoPagamentoOut(
                 situacao_pagamento=situacao,
                 quantidade=situacao_qtd[situacao],
                 valor_total=situacao_valor[situacao],
             )
             for situacao in sorted(situacao_qtd, key=lambda situacao: (-situacao_qtd[situacao], situacao))
+        ],
+        distribuicao_situacao_cadastral=[
+            DistribuicaoSituacaoCadastralOut(
+                situacao_registro=situacao,
+                total_entidades=situacao_cadastral_total[situacao],
+                total_com_debito_aberto=situacao_cadastral_aberto[situacao],
+                total_sem_debito_aberto=situacao_cadastral_total[situacao] - situacao_cadastral_aberto[situacao],
+            )
+            for situacao in sorted(
+                situacao_cadastral_total, key=lambda situacao: (-situacao_cadastral_total[situacao], situacao)
+            )
         ],
         serie_historica_xlsx=_serie_historica_xlsx(sessao),
     )

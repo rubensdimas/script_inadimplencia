@@ -230,9 +230,73 @@ def test_dashboard_distribuicoes_ano_tipo_situacao(cliente):
         {"tipo_debito": "ANUIDADE", "quantidade": 3, "valor_total": 450.0},
         {"tipo_debito": "MULTA ETICA", "quantidade": 1, "valor_total": 150.0},
     ]
-    assert corpo["distribuicao_situacao"] == [
+    assert corpo["distribuicao_situacao_pagamento"] == [
         {"situacao_pagamento": "Nao pago", "quantidade": 3, "valor_total": 550.0},
         {"situacao_pagamento": "Pago a menor", "quantidade": 1, "valor_total": 50.0},
+    ]
+
+
+def test_dashboard_distribuicao_situacao_cadastral_cruza_com_debito_em_aberto(cliente):
+    xlsx = _upload_xlsx(
+        cliente,
+        "cadastral_20260915_100000.xlsx",
+        [
+            _linha_xlsx(
+                "11111111111",
+                "ATIVO PROFISSIONAL",
+                situacao_registro="ATIVO",
+                debitos=[{"ano": 2026, "tipo": "ANUIDADE", "valor": 100.0, "situacao_pagamento": "Nao pago"}],
+            ),
+            _linha_xlsx(
+                "22222222222",
+                "BAIXADO COM DIVIDA",
+                situacao_registro="BAIXADO",
+                debitos=[{"ano": 2026, "tipo": "ANUIDADE", "valor": 200.0, "situacao_pagamento": "Nao pago"}],
+            ),
+            _linha_xlsx(
+                "33333333333",
+                "BAIXADO QUITADO",
+                situacao_registro="BAIXADO",
+                debitos=[{"ano": 2026, "tipo": "ANUIDADE", "valor": 50.0, "situacao_pagamento": "Pago"}],
+            ),
+            _linha_xlsx(
+                "44444444444",
+                "TRANSFERIDO SEM DEBITO",
+                situacao_registro="TRANSFERIDO",
+                debitos=[],
+            ),
+        ],
+    )
+    csv = _upload_csv(cliente, "cadastral.csv", ["QUALQUER PESSOA;ANUIDADE;2026;0;01/01/2026;Débito"])
+
+    resposta = cliente.get(
+        "/api/dashboard", params={"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": xlsx["id"]}
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+
+    # Story 18: situacao cadastral cruzada com a existencia de debitos em aberto -- por
+    # exemplo, profissionais BAIXADOS que ainda possuem divida pendente (BAIXADO COM DIVIDA)
+    # devem ser distinguiveis de BAIXADOS que ja quitaram tudo (BAIXADO QUITADO).
+    assert corpo["distribuicao_situacao_cadastral"] == [
+        {
+            "situacao_registro": "BAIXADO",
+            "total_entidades": 2,
+            "total_com_debito_aberto": 1,
+            "total_sem_debito_aberto": 1,
+        },
+        {
+            "situacao_registro": "ATIVO",
+            "total_entidades": 1,
+            "total_com_debito_aberto": 1,
+            "total_sem_debito_aberto": 0,
+        },
+        {
+            "situacao_registro": "TRANSFERIDO",
+            "total_entidades": 1,
+            "total_com_debito_aberto": 0,
+            "total_sem_debito_aberto": 1,
+        },
     ]
 
 
