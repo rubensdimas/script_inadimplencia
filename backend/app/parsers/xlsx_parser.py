@@ -72,11 +72,11 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
 
         registro = RegistroXlsx(
             nome_original=str(linha[indice["NomeRazaoSocial"]]).strip(),
-            cpf_cnpj=_texto(linha[indice["CPFCNPJ"]]) if "CPFCNPJ" in indice else None,
-            tipo_pessoa=_texto(linha[indice["TipoPessoa"]]) if "TipoPessoa" in indice else None,
-            categoria=_texto(linha[indice["Categoria"]]) if "Categoria" in indice else None,
-            subregiao=_texto(linha[indice["SubRegiao"]]) if "SubRegiao" in indice else None,
-            situacao_registro=_texto(linha[indice["SituacaoRegistro"]]) if "SituacaoRegistro" in indice else None,
+            cpf_cnpj=_texto(linha[indice["CPFCNPJ"]]),
+            tipo_pessoa=_texto(linha[indice["TipoPessoa"]]),
+            categoria=_texto(linha[indice["Categoria"]]),
+            subregiao=_texto(linha[indice["SubRegiao"]]),
+            situacao_registro=_texto(linha[indice["SituacaoRegistro"]]),
         )
 
         for n in range(MAX_BLOCOS_DEBITO):
