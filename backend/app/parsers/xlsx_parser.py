@@ -4,6 +4,8 @@ from io import BytesIO
 
 from openpyxl import load_workbook
 
+from app.errors import ErroIngestao
+
 MAX_BLOCOS_DEBITO = 37
 _EPOCH_EXCEL = date(1899, 12, 30)
 
@@ -29,6 +31,7 @@ class RegistroXlsx:
     categoria: str | None
     subregiao: str | None
     situacao_registro: str | None
+    registro_resumido: str | None
     debitos: list[RegistroDebitoXlsx] = field(default_factory=list)
 
 
@@ -59,11 +62,20 @@ def _data(valor) -> date | None:
 
 
 def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
-    planilha = load_workbook(BytesIO(conteudo), read_only=True, data_only=True)
-    aba = planilha["Dados"]
-    linhas = aba.iter_rows(values_only=True)
-    cabecalho = next(linhas)
+    try:
+        planilha = load_workbook(BytesIO(conteudo), read_only=True, data_only=True)
+        aba = planilha["Dados"]
+        linhas = aba.iter_rows(values_only=True)
+        cabecalho = next(linhas)
+    except Exception as exc:
+        raise ErroIngestao("arquivo XLSX invalido ou sem a aba Dados") from exc
     indice = {nome: i for i, nome in enumerate(cabecalho) if nome}
+    obrigatorias = {
+        "CPFCNPJ", "NomeRazaoSocial", "TipoPessoa", "Categoria", "SubRegiao", "SituacaoRegistro"
+    }
+    ausentes = obrigatorias - indice.keys()
+    if ausentes:
+        raise ErroIngestao(f"colunas cadastrais ausentes: {', '.join(sorted(ausentes))}")
 
     registros = []
     for linha in linhas:
@@ -77,6 +89,9 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
             categoria=_texto(linha[indice["Categoria"]]),
             subregiao=_texto(linha[indice["SubRegiao"]]),
             situacao_registro=_texto(linha[indice["SituacaoRegistro"]]),
+            registro_resumido=(
+                _texto(linha[indice["RegistroResumido"]]) if "RegistroResumido" in indice else None
+            ),
         )
 
         for n in range(MAX_BLOCOS_DEBITO):
@@ -102,4 +117,6 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
 
         registros.append(registro)
 
+    if not registros:
+        raise ErroIngestao("arquivo XLSX sem registros validos")
     return registros

@@ -1,20 +1,17 @@
-from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
-from fastapi import FastAPI
-
-from app.db import criar_tabelas
+from app.errors import ErroIngestao
 from app.routers import snapshots, uploads
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    criar_tabelas()
-    yield
-
-
-app = FastAPI(title="Inadimplência CREFITO11", lifespan=lifespan)
+app = FastAPI(title="Inadimplência CREFITO11")
 app.include_router(uploads.roteador)
 app.include_router(snapshots.roteador)
+
+
+@app.exception_handler(ErroIngestao)
+def tratar_erro_ingestao(_request: Request, exc: ErroIngestao):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @app.get("/health")

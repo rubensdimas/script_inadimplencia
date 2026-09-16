@@ -5,7 +5,7 @@ def test_upload_xlsx_despivota_debitos_e_persiste_dados_cadastrais(cliente):
     conteudo = construir_xlsx_fixture()
 
     resposta = cliente.post(
-        "/uploads/xlsx",
+        "/api/uploads/xlsx",
         files={
             "arquivo": (
                 "Relatorio_Inadimplentes_Debitos_20260915_205007.xlsx",
@@ -20,7 +20,7 @@ def test_upload_xlsx_despivota_debitos_e_persiste_dados_cadastrais(cliente):
     assert snapshot["tipo_arquivo"] == "xlsx"
     assert snapshot["data_snapshot"].startswith("2026-09-15T20:50:07")
 
-    debitos = cliente.get(f"/snapshots/{snapshot['id']}/debitos").json()
+    debitos = cliente.get(f"/api/snapshots/{snapshot['id']}/debitos").json()["items"]
     assert len(debitos) == 2
 
     empresa = next(d for d in debitos if d["valor_total"] == 620.27)
@@ -35,9 +35,10 @@ def test_upload_xlsx_despivota_debitos_e_persiste_dados_cadastrais(cliente):
     assert empresa["situacao_parcelamento"] == "Não parcelado"
     assert empresa["entidade"]["tipo_pessoa"] == "Empresa"
     assert empresa["entidade"]["situacao_registro"] == "ATIVO"
-    assert empresa["entidade"]["cpf_cnpj"] == "10.852.801/0001-39"
+    assert empresa["entidade"]["cpf_cnpj"] == "**.***.***/****-39"
     assert empresa["entidade"]["categoria"] == "EMPRESA"
     assert empresa["entidade"]["subregiao"] == "DISTRITO FEDERAL"
+    assert empresa["entidade"]["registro_resumido"] == "CREFITO 001"
 
     profissional = next(d for d in debitos if d["valor_total"] == 542.73)
     assert profissional["ano_referencia"] == 2026

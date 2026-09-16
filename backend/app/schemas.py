@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SnapshotOut(BaseModel):
@@ -16,11 +16,13 @@ class SnapshotOut(BaseModel):
 class EntidadeResumoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int | None = Field(validation_alias="entidade_id")
+    observacao_id: int
     nome_normalizado: str
     nome_original: str
-    cpf_cnpj: str | None
+    cpf_cnpj: str | None = Field(validation_alias="cpf_cnpj_mascarado")
     tipo_pessoa: str | None
+    registro_resumido: str | None
     categoria: str | None
     subregiao: str | None
     situacao_registro: str | None
@@ -41,4 +43,12 @@ class DebitoOut(BaseModel):
     situacao_pagamento: str | None
     situacao_divida_ativa: str | None
     situacao_parcelamento: str | None
-    entidade: EntidadeResumoOut
+    entidade: EntidadeResumoOut = Field(validation_alias="observacao")
+
+
+class PaginaDebitosOut(BaseModel):
+    items: list[DebitoOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int
