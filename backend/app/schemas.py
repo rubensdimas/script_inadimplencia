@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -109,7 +110,7 @@ class IndicadoresDashboardOut(BaseModel):
     xlsx_snapshot_id: int
     total_entidades_xlsx: int
     total_obrigacoes_distintas_xlsx: int
-    total_valor_total_xlsx: float
+    total_valor_total_xlsx: Decimal
     total_parcelas_em_aberto_csv: int
     total_debitos_divida_ativa: int
     total_debitos_divida_ativa_executiva: int
@@ -122,7 +123,7 @@ class RankingObrigacoesItemOut(BaseModel):
 
 class RankingValorTotalItemOut(BaseModel):
     entidade: EntidadeResumoOut
-    valor_total: float
+    valor_total: Decimal
 
 
 class DebitoDividaAtivaOut(BaseModel):
@@ -130,25 +131,25 @@ class DebitoDividaAtivaOut(BaseModel):
     ano_referencia: int
     tipo_debito: str
     situacao_divida_ativa: str
-    valor_total: float | None
+    valor_total: Decimal | None
 
 
 class DistribuicaoAnoOut(BaseModel):
     ano_referencia: int
     quantidade: int
-    valor_total: float
+    valor_total: Decimal
 
 
 class DistribuicaoTipoOut(BaseModel):
     tipo_debito: str
     quantidade: int
-    valor_total: float
+    valor_total: Decimal
 
 
 class DistribuicaoSituacaoPagamentoOut(BaseModel):
     situacao_pagamento: str
     quantidade: int
-    valor_total: float
+    valor_total: Decimal
 
 
 class DistribuicaoSituacaoCadastralOut(BaseModel):
@@ -166,7 +167,7 @@ class PontoSerieHistoricaOut(BaseModel):
     snapshot_id: int
     data_snapshot: datetime
     total_entidades: int
-    total_valor_total: float
+    total_valor_total: Decimal
     total_divida_ativa: int
 
 

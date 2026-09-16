@@ -161,7 +161,7 @@ def test_dashboard_indicadores(cliente):
         "xlsx_snapshot_id": atual["id"],
         "total_entidades_xlsx": 3,
         "total_obrigacoes_distintas_xlsx": 4,
-        "total_valor_total_xlsx": 600.0,
+        "total_valor_total_xlsx": "600.00",
         "total_parcelas_em_aberto_csv": 2,
         "total_debitos_divida_ativa": 2,
         "total_debitos_divida_ativa_executiva": 1,
@@ -192,9 +192,9 @@ def test_dashboard_ranking_valor_total(cliente):
 
     ranking = corpo["ranking_valor_total"]
     assert [(r["entidade"]["nome_normalizado"], r["valor_total"]) for r in ranking] == [
-        ("ANA PROFISSIONAL", 400.0),
-        ("EMPRESA DEVEDORA LTDA", 150.0),
-        ("CARLOS PROFISSIONAL", 50.0),
+        ("ANA PROFISSIONAL", "400.00"),
+        ("EMPRESA DEVEDORA LTDA", "150.00"),
+        ("CARLOS PROFISSIONAL", "50.00"),
     ]
 
 
@@ -210,8 +210,8 @@ def test_dashboard_divida_ativa_prioriza_executiva(cliente):
         (d["entidade"]["nome_normalizado"], d["situacao_divida_ativa"], d["valor_total"])
         for d in divida_ativa
     ] == [
-        ("EMPRESA DEVEDORA LTDA", "Executiva", 150.0),
-        ("ANA PROFISSIONAL", "Administrativa", 300.0),
+        ("EMPRESA DEVEDORA LTDA", "Executiva", "150.00"),
+        ("ANA PROFISSIONAL", "Administrativa", "300.00"),
     ]
 
 
@@ -223,16 +223,16 @@ def test_dashboard_distribuicoes_ano_tipo_situacao(cliente):
     ).json()
 
     assert corpo["distribuicao_ano"] == [
-        {"ano_referencia": 2025, "quantidade": 1, "valor_total": 100.0},
-        {"ano_referencia": 2026, "quantidade": 3, "valor_total": 500.0},
+        {"ano_referencia": 2025, "quantidade": 1, "valor_total": "100.00"},
+        {"ano_referencia": 2026, "quantidade": 3, "valor_total": "500.00"},
     ]
     assert corpo["distribuicao_tipo"] == [
-        {"tipo_debito": "ANUIDADE", "quantidade": 3, "valor_total": 450.0},
-        {"tipo_debito": "MULTA ETICA", "quantidade": 1, "valor_total": 150.0},
+        {"tipo_debito": "ANUIDADE", "quantidade": 3, "valor_total": "450.00"},
+        {"tipo_debito": "MULTA ETICA", "quantidade": 1, "valor_total": "150.00"},
     ]
     assert corpo["distribuicao_situacao_pagamento"] == [
-        {"situacao_pagamento": "Nao pago", "quantidade": 3, "valor_total": 550.0},
-        {"situacao_pagamento": "Pago a menor", "quantidade": 1, "valor_total": 50.0},
+        {"situacao_pagamento": "Nao pago", "quantidade": 3, "valor_total": "550.00"},
+        {"situacao_pagamento": "Pago a menor", "quantidade": 1, "valor_total": "50.00"},
     ]
 
 
@@ -312,8 +312,8 @@ def test_dashboard_serie_historica_xlsx(cliente):
         (p["snapshot_id"], p["total_entidades"], p["total_valor_total"], p["total_divida_ativa"])
         for p in serie
     ] == [
-        (antigo["id"], 1, 80.0, 0),
-        (atual["id"], 3, 600.0, 2),
+        (antigo["id"], 1, "80.00", 0),
+        (atual["id"], 3, "600.00", 2),
     ]
 
 
