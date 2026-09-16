@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-inadimplencia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inadimplencia}
+      POSTGRES_DB: ${POSTGRES_DB:-inadimplencia}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-inadimplencia}:${POSTGRES_PASSWORD:-inadimplencia}@db:5432/${POSTGRES_DB:-inadimplencia}
+      RAW_UPLOADS_DIR: /data/raw_uploads
+    volumes:
+      - raw_uploads:/data/raw_uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  raw_uploads:

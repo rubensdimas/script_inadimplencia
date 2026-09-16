@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+node_modules/
+.env
+.superpowers/
+
+# Relatórios brutos de inadimplência contêm CPF/CNPJ e dados financeiros reais —
+# nunca versionar, só usar como entrada local para upload manual.
+Relatorio de inadimplencia - Analitico.csv
+Relatorio_Inadimplentes_Debitos_*.xlsx
