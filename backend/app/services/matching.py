@@ -9,7 +9,7 @@ feita automaticamente (ver constraints globais do plano).
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Debito, ObservacaoEntidade
 from app.normalize import normalize_nome
@@ -68,13 +68,20 @@ class ResultadoPareamento:
     ambiguas: list[NomeAmbiguo] = field(default_factory=list)
 
 
-def _observacoes_snapshot(sessao: Session, snapshot_id: int) -> list[ObservacaoEntidade]:
+def observacoes_snapshot(sessao: Session, snapshot_id: int) -> list[ObservacaoEntidade]:
+    """Observacoes de um snapshot, com `.debitos` ja carregado (evita N+1 em
+    quem itera `observacao.debitos` para cada observacao retornada -- ver
+    `obrigacoes_por_observacao`, usada por `parear_snapshots`/`montar_comparacao`
+    e por `montar_dashboard`)."""
     return list(
         sessao.scalars(
             select(ObservacaoEntidade)
             .where(ObservacaoEntidade.snapshot_id == snapshot_id)
+            .options(joinedload(ObservacaoEntidade.debitos))
             .order_by(ObservacaoEntidade.nome_normalizado, ObservacaoEntidade.id)
-        ).all()
+        )
+        .unique()
+        .all()
     )
 
 
@@ -89,8 +96,8 @@ def parear_snapshots(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: in
     Observacoes XLSX cujo nome normalizado nao aparece no CSV (nem via nome ambiguo)
     vao para `somente_xlsx`.
     """
-    observacoes_csv = _observacoes_snapshot(sessao, csv_snapshot_id)
-    observacoes_xlsx = _observacoes_snapshot(sessao, xlsx_snapshot_id)
+    observacoes_csv = observacoes_snapshot(sessao, csv_snapshot_id)
+    observacoes_xlsx = observacoes_snapshot(sessao, xlsx_snapshot_id)
 
     candidatos_por_nome: dict[str, list[ObservacaoEntidade]] = {}
     for observacao in observacoes_xlsx:

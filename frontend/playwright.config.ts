@@ -1,8 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Jornada E2E ponta a ponta contra o stack real (docker compose: db + backend +
-// frontend). Ver frontend/e2e/journey.spec.ts e o relatorio da Task 5 para os
-// comandos operacionais completos de como subir o stack e rodar esta suite.
+// frontend). Ver frontend/e2e/journey.spec.ts e o README.md (secao "Executar a
+// suite E2E") para os comandos operacionais completos de como subir o stack e
+// rodar esta suite.
 export default defineConfig({
   testDir: "./e2e",
   timeout: 90_000,

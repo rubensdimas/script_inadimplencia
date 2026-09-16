@@ -22,6 +22,10 @@ export function UploadCard({ titulo, descricao, accept, onUpload }: UploadCardPr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["snapshots"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+      setArquivoSelecionado(null);
     },
   });
 

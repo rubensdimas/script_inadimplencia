@@ -142,11 +142,18 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("heading", { name: /evolu[cç][aã]o/i })).toBeInTheDocument();
   });
 
-  it("oferece exportacao do ranking preservando os snapshots selecionados", async () => {
+  it("oferece exportacao do ranking usando os snapshots resolvidos pelo backend, nao o estado bruto do seletor", async () => {
     vi.spyOn(snapshotsApi, "listarSnapshots").mockImplementation((tipo) =>
       Promise.resolve(tipo === "csv" ? csvSnapshots : xlsxSnapshots),
     );
-    vi.spyOn(dashboardApi, "obterDashboard").mockResolvedValue(dashboardFixture);
+    // O backend e quem resolve "mais recente" -> id concreto; a pagina deve usar o id
+    // devolvido em `indicadores`, nao o `csvSnapshotId` bruto do estado do seletor.
+    vi.spyOn(dashboardApi, "obterDashboard").mockImplementation(({ csvSnapshotId } = {}) =>
+      Promise.resolve({
+        ...dashboardFixture,
+        indicadores: { ...dashboardFixture.indicadores, csv_snapshot_id: csvSnapshotId ?? 2 },
+      }),
+    );
     const usuario = userEvent.setup();
 
     renderPagina();

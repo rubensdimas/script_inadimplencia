@@ -45,8 +45,9 @@ describe("UploadsPage", () => {
 
     const cartaoCsv = screen.getByRole("region", { name: /csv/i });
     const cartaoXlsx = screen.getByRole("region", { name: /xlsx/i });
-    const input = within(cartaoCsv).getByLabelText(/selecionar arquivo/i);
+    const input = within(cartaoCsv).getByLabelText(/selecionar arquivo/i) as HTMLInputElement;
     await usuario.upload(input, criarArquivo("cadastro.csv", "text/csv"));
+    expect(input.files?.[0]?.name).toBe("cadastro.csv");
     await usuario.click(within(cartaoCsv).getByRole("button", { name: /enviar/i }));
 
     await waitFor(() => {
@@ -54,6 +55,11 @@ describe("UploadsPage", () => {
     });
     expect(uploadsApi.enviarCsv).toHaveBeenCalledTimes(1);
     expect(within(cartaoXlsx).queryByText(/cadastro\.csv/)).not.toBeInTheDocument();
+
+    // Apos sucesso, o input de arquivo e limpo (achado 4 do fix wave): o nome do
+    // arquivo anterior nao deve continuar selecionado, permitindo um novo envio.
+    expect(input.value).toBe("");
+    expect(within(cartaoCsv).getByRole("button", { name: /enviar/i })).toBeDisabled();
   });
 
   it("mostra um erro acionavel no cartao XLSX sem afetar o cartao CSV", async () => {

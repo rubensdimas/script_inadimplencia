@@ -343,3 +343,55 @@ def test_dashboard_snapshot_inexistente_retorna_404(cliente):
         "/api/dashboard", params={"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": 999999}
     )
     assert resposta.status_code == 404
+
+
+# --- teto de itens na resposta JSON do dashboard (achado 2 do fix wave) ----
+
+
+def test_dashboard_json_limita_rankings_e_divida_ativa_mas_export_nao(cliente):
+    total_entidades = 60
+    linhas = [
+        _linha_xlsx(
+            f"{indice:011d}",
+            f"ENTIDADE {indice:03d}",
+            debitos=[
+                {
+                    "ano": 2026,
+                    "tipo": "ANUIDADE",
+                    "valor": float(1000 - indice),
+                    "situacao_divida_ativa": "Administrativa",
+                }
+            ],
+        )
+        for indice in range(total_entidades)
+    ]
+    xlsx = _upload_xlsx(cliente, "muitas_entidades_20260915_100000.xlsx", linhas)
+    csv = _upload_csv(cliente, "muitas_entidades.csv", ["QUALQUER PESSOA;ANUIDADE;2026;0;01/01/2026;Débito"])
+
+    resposta = cliente.get(
+        "/api/dashboard", params={"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": xlsx["id"]}
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+
+    # Resposta JSON tem teto (< total de entidades), mas os indicadores agregados
+    # continuam cobrindo o conjunto inteiro.
+    assert len(corpo["ranking_obrigacoes"]) < total_entidades
+    assert len(corpo["ranking_valor_total"]) < total_entidades
+    assert len(corpo["divida_ativa"]) < total_entidades
+    assert corpo["indicadores"]["total_entidades_xlsx"] == total_entidades
+
+    # Ordenado por valor_total decrescente -- entidade 000 tem o maior valor (1000).
+    assert corpo["ranking_valor_total"][0]["entidade"]["nome_normalizado"] == "ENTIDADE 000"
+    valores = [float(item["valor_total"]) for item in corpo["ranking_valor_total"]]
+    assert valores == sorted(valores, reverse=True)
+
+    # A exportacao de ranking, que reutiliza montar_dashboard, permanece integral.
+    resposta_export = cliente.get(
+        "/api/exports/ranking",
+        params={"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": xlsx["id"], "format": "csv"},
+    )
+    assert resposta_export.status_code == 200, resposta_export.text
+    linhas_export = resposta_export.text.strip().splitlines()
+    # 1 linha de cabecalho + 1 linha por entidade.
+    assert len(linhas_export) - 1 == total_entidades

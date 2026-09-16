@@ -60,7 +60,10 @@ export function DashboardPage() {
         <ExportButtons
           dataset="ranking"
           rotulo="Exportar ranking"
-          parametros={{ csv_snapshot_id: csvSnapshotId, xlsx_snapshot_id: xlsxSnapshotId }}
+          parametros={{
+            csv_snapshot_id: dashboard.data.indicadores.csv_snapshot_id,
+            xlsx_snapshot_id: dashboard.data.indicadores.xlsx_snapshot_id,
+          }}
         />
       )}
 

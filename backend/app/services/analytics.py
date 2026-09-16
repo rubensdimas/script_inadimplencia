@@ -9,7 +9,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.models import Debito, ObservacaoEntidade, Snapshot
 from app.normalize import normalize_nome
@@ -39,6 +39,7 @@ from app.services.matching import (
     esta_parcelado_csv,
     esta_parcelado_xlsx,
     obrigacoes_por_observacao,
+    observacoes_snapshot,
     parear_snapshots,
 )
 
@@ -173,19 +174,6 @@ def montar_comparacao(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: i
     )
 
 
-def _observacoes_xlsx_com_debitos(sessao: Session, snapshot_id: int) -> list[ObservacaoEntidade]:
-    return list(
-        sessao.scalars(
-            select(ObservacaoEntidade)
-            .where(ObservacaoEntidade.snapshot_id == snapshot_id)
-            .options(joinedload(ObservacaoEntidade.debitos))
-            .order_by(ObservacaoEntidade.nome_normalizado, ObservacaoEntidade.id)
-        )
-        .unique()
-        .all()
-    )
-
-
 def _total_parcelas_em_aberto_csv(sessao: Session, csv_snapshot_id: int) -> int:
     situacoes = sessao.scalars(
         select(Debito.situacao_parcelamento)
@@ -224,8 +212,18 @@ def _serie_historica_xlsx(sessao: Session) -> list[PontoSerieHistoricaOut]:
     return pontos
 
 
-def montar_dashboard(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: int) -> DashboardOut:
-    observacoes = _observacoes_xlsx_com_debitos(sessao, xlsx_snapshot_id)
+def montar_dashboard(
+    sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: int, *, limite: int | None = None
+) -> DashboardOut:
+    """Monta o dashboard analitico.
+
+    `limite` corta `ranking_obrigacoes`, `ranking_valor_total` e `divida_ativa`
+    ao top-N (apos a ordenacao ja aplicada) para a resposta JSON, que carrega o
+    payload inteiro para o navegador ao vivo. Os indicadores agregados
+    (`total_*`) e a exportacao (que passa `limite=None`, o default) continuam
+    cobrindo o conjunto completo -- exports sao o output de alta fidelidade.
+    """
+    observacoes = observacoes_snapshot(sessao, xlsx_snapshot_id)
 
     total_obrigacoes = 0
     total_valor = Decimal("0")
@@ -297,6 +295,11 @@ def montar_dashboard(sessao: Session, csv_snapshot_id: int, xlsx_snapshot_id: in
             item[0].nome_normalizado,
         )
     )
+
+    if limite is not None:
+        ranking_obrigacoes_dados = ranking_obrigacoes_dados[:limite]
+        ranking_valor_dados = ranking_valor_dados[:limite]
+        divida_ativa_dados = divida_ativa_dados[:limite]
 
     indicadores = IndicadoresDashboardOut(
         csv_snapshot_id=csv_snapshot_id,

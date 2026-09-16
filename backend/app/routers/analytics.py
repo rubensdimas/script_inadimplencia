@@ -8,6 +8,11 @@ from app.services.snapshots import resolver_snapshot
 
 roteador = APIRouter(prefix="/api", tags=["analytics"])
 
+# Teto de itens em ranking_obrigacoes/ranking_valor_total/divida_ativa na resposta
+# JSON do dashboard (a exportacao, que chama montar_dashboard com limite=None,
+# continua sem teto -- ver app/services/analytics.py:montar_dashboard).
+LIMITE_DASHBOARD_JSON = 50
+
 
 @roteador.get("/comparisons", response_model=ComparacaoOut)
 def obter_comparacao(
@@ -28,7 +33,7 @@ def obter_dashboard(
 ):
     csv_snapshot = resolver_snapshot(sessao, csv_snapshot_id, "csv")
     xlsx_snapshot = resolver_snapshot(sessao, xlsx_snapshot_id, "xlsx")
-    return montar_dashboard(sessao, csv_snapshot.id, xlsx_snapshot.id)
+    return montar_dashboard(sessao, csv_snapshot.id, xlsx_snapshot.id, limite=LIMITE_DASHBOARD_JSON)
 
 
 @roteador.get("/matching-issues", response_model=PendenciasPareamentoOut)
