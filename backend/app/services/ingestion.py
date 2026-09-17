@@ -281,6 +281,52 @@ class ResultadoReprocessamento:
     falhas: dict[int, str] = field(default_factory=dict)
 
 
+def deletar_snapshot(sessao: Session, snapshot_id: int) -> bool:
+    """Remove um snapshot, suas observacoes/debitos (cascade), o arquivo bruto
+    e qualquer `Entidade` que fique sem nenhuma observacao apos a remocao.
+
+    Usado quando um upload precisa ser descartado por completo (ex.: arquivo
+    gerado com um filtro incorreto) — ao contrario do fluxo normal de
+    ingestao, aqui a remocao e definitiva e proposital: nao ha o que
+    reprocessar de um arquivo que se sabe estar errado.
+    """
+    snapshot = sessao.get(Snapshot, snapshot_id)
+    if snapshot is None:
+        return False
+
+    entidades_afetadas = set(
+        sessao.scalars(
+            select(ObservacaoEntidade.entidade_id).where(
+                ObservacaoEntidade.snapshot_id == snapshot_id,
+                ObservacaoEntidade.entidade_id.is_not(None),
+            )
+        ).all()
+    )
+
+    try:
+        caminho = Path(snapshot.caminho_arquivo_bruto) if snapshot.caminho_arquivo_bruto else None
+        sessao.delete(snapshot)
+        sessao.flush()
+
+        for entidade_id in entidades_afetadas:
+            ainda_tem_observacao = sessao.scalar(
+                select(ObservacaoEntidade.id).where(ObservacaoEntidade.entidade_id == entidade_id)
+            )
+            if ainda_tem_observacao is None:
+                entidade_orfa = sessao.get(Entidade, entidade_id)
+                if entidade_orfa is not None:
+                    sessao.delete(entidade_orfa)
+
+        sessao.commit()
+    except Exception:
+        sessao.rollback()
+        raise
+
+    if caminho is not None:
+        caminho.unlink(missing_ok=True)
+    return True
+
+
 def reprocessar_todos_snapshots(sessao: Session) -> ResultadoReprocessamento:
     snapshots = sessao.scalars(select(Snapshot).order_by(Snapshot.id)).all()
     resultado = ResultadoReprocessamento()

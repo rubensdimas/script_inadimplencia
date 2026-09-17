@@ -49,11 +49,11 @@ Commits principais:
 
 ### Verificacoes registradas
 
-- Backend: `python -m pytest tests -v` resultou em `71 passed`, sem warnings, apos a Tarefa 3 e o fix de documentos invalidos no XLSX.
+- Backend: `python -m pytest tests -v` resultou em `79 passed`, sem warnings, apos a Tarefa 3, o fix de documentos invalidos no XLSX e a exclusao de snapshot.
 - Python: `python -m compileall -q app alembic tests` concluiu com sucesso.
 - Alembic: `alembic current` indicou `0002_historical_observations (head)`.
 - Alembic: `alembic check` informou `No new upgrade operations detected`.
-- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `29 passed`, dentro e fora do Docker.
+- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `32 passed`, dentro e fora do Docker.
 - Frontend: `npm run build` (`tsc -b && vite build`) concluiu sem erros, dentro e fora do Docker.
 - Smoke test manual: stack subida via `docker compose up -d`, proxy `/api` do Vite confirmado ponta a ponta contra o backend real (`GET /api/snapshots` via `http://localhost:5173/api/snapshots`).
 - Validacao exploratoria local, sem versionar dados reais:
@@ -131,6 +131,16 @@ Quatro achados reais, tres deles corrigidos so nesta tarefa mas cujo mecanismo j
 - **Categoria de Empresa redundante** (mesmo padrao ja corrigido em Pendencias): oculta quando `categoria` so repete `tipo_pessoa`.
 
 Testes de componente cobrem listagem, busca com debounce, filtro imediato por tipo de pessoa, estado vazio, navegacao para o detalhe, paginacao, resumo cadastral do detalhe e a classificacao correta de divida ativa na tabela de debitos.
+
+## Exclusao de snapshot: concluida
+
+Pedido do usuario fora do plano original: apos identificar um filtro incorreto nas planilhas ja enviadas, era preciso poder descartar snapshots por completo antes de reenviar os arquivos corrigidos. Decisoes tomadas em par com o usuario (skill de grilling): exclusao por snapshot individual (nao um botao de "limpar tudo" — reaproveitavel para qualquer upload ruim futuro), limpeza das `Entidade` que ficarem orfas (sem nenhuma observacao remanescente), remocao tambem do arquivo bruto em `raw_uploads` (nao faz sentido preservar um arquivo que se sabe estar errado), confirmacao via `window.confirm()` nativo (primeira acao destrutiva do app; um dialogo customizado fica para quando surgir uma segunda necessidade).
+
+Backend: `DELETE /api/snapshots/{id}` (204 ao apagar, 404 se nao existe). `deletar_snapshot` em `services/ingestion.py` coleta as `Entidade` referenciadas pelas observacoes do snapshot antes de apagar (o cascade do ORM remove observacoes/debitos automaticamente), depois verifica quais ficaram sem nenhuma observacao remanescente e remove tambem essas, e por fim apaga o arquivo bruto do disco. 4 testes novos (RED antes do GREEN): remove registro e arquivo; remove entidade que fica orfa; preserva entidade que ainda tem observacao em outro snapshot; 404 para snapshot inexistente. 79 testes de backend agora.
+
+Frontend: botao de lixeira por linha em "Ultimos envios" (`UploadCard.tsx`), com `deletarSnapshot()` no cliente da API e invalidacao da query de historico apos sucesso. 3 testes novos cobrindo confirmacao aceita, confirmacao cancelada e erro de exclusao. 32 testes de frontend agora.
+
+Validado tambem contra a stack real rodando em Postgres (nao so os testes): apagar um snapshot XLSX duplicado (5.331 entidades no total) removeu corretamente as 37 entidades que so existiam naquele snapshot, preservando as demais — confirmado por contagem antes/depois via `/api/entities`.
 
 ## Proximas etapas
 

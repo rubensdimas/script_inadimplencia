@@ -1,13 +1,13 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_sessao
 from app.models import Debito, ObservacaoEntidade, Snapshot
 from app.schemas import PaginaDebitosOut, SnapshotOut
-from app.services.ingestion import contar_debitos_do_snapshot
+from app.services.ingestion import contar_debitos_do_snapshot, deletar_snapshot
 
 roteador = APIRouter(prefix="/api/snapshots", tags=["snapshots"])
 
@@ -51,3 +51,10 @@ def listar_debitos(
         page_size=page_size,
         pages=(total + page_size - 1) // page_size,
     )
+
+
+@roteador.delete("/{snapshot_id}", status_code=204)
+def excluir_snapshot(snapshot_id: int, sessao: Session = Depends(get_sessao)):
+    if not deletar_snapshot(sessao, snapshot_id):
+        raise HTTPException(status_code=404, detail="snapshot nao encontrado")
+    return Response(status_code=204)

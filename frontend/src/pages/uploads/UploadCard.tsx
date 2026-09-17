@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from "lucide-react";
 
-import { ApiError, type Snapshot, type TipoArquivo, listarSnapshots } from "@/api/client";
+import { ApiError, type Snapshot, type TipoArquivo, deletarSnapshot, listarSnapshots } from "@/api/client";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,23 @@ export function UploadCard({ tipoArquivo, titulo, descricao, accept, enviar }: U
       queryClient.invalidateQueries({ queryKey: ["snapshots", tipoArquivo] });
     },
   });
+
+  const remocao = useMutation({
+    mutationFn: deletarSnapshot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["snapshots", tipoArquivo] });
+    },
+  });
+
+  function excluirSnapshot(snapshot: Snapshot) {
+    const confirmado = window.confirm(
+      `Excluir o snapshot de "${snapshot.nome_arquivo_original}" (${formatarDataHora(snapshot.data_snapshot)})? ` +
+        "Os dados desse envio e o arquivo original serão apagados. Essa ação não pode ser desfeita.",
+    );
+    if (confirmado) {
+      remocao.mutate(snapshot.id);
+    }
+  }
 
   const ultimoEnvio = upload.data;
 
@@ -108,6 +125,13 @@ export function UploadCard({ tipoArquivo, titulo, descricao, accept, enviar }: U
 
         <div>
           <h4 className="mb-2 text-sm font-medium text-muted-foreground">Últimos envios</h4>
+          {remocao.isError ? (
+            <Alert variant="destructive" className="mb-2">
+              {remocao.error instanceof ApiError
+                ? remocao.error.message
+                : "Não foi possível excluir o snapshot."}
+            </Alert>
+          ) : null}
           {historico.isLoading ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : historico.isError ? (
@@ -115,9 +139,18 @@ export function UploadCard({ tipoArquivo, titulo, descricao, accept, enviar }: U
           ) : historico.data && historico.data.length > 0 ? (
             <ul className="flex flex-col gap-1 text-sm">
               {historico.data.slice(0, 5).map((snapshot) => (
-                <li key={snapshot.id} className="flex justify-between gap-3 text-muted-foreground">
-                  <span className="truncate">{snapshot.nome_arquivo_original}</span>
+                <li key={snapshot.id} className="flex items-center justify-between gap-3 text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{snapshot.nome_arquivo_original}</span>
                   <span className="shrink-0">{formatarDataHora(snapshot.data_snapshot)}</span>
+                  <button
+                    type="button"
+                    onClick={() => excluirSnapshot(snapshot)}
+                    disabled={remocao.isPending}
+                    aria-label={`Excluir snapshot de ${snapshot.nome_arquivo_original}`}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  </button>
                 </li>
               ))}
             </ul>

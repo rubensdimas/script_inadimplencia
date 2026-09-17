@@ -95,6 +95,10 @@ export function uploadXlsx(arquivo: File): Promise<Snapshot> {
   return request<Snapshot>("/api/uploads/xlsx", { method: "POST", body: corpo });
 }
 
+export function deletarSnapshot(snapshotId: number): Promise<void> {
+  return request<void>(`/api/snapshots/${snapshotId}`, { method: "DELETE" });
+}
+
 export function listarSnapshots(tipoArquivo?: TipoArquivo): Promise<Snapshot[]> {
   const params = new URLSearchParams();
   if (tipoArquivo) {

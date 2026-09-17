@@ -83,6 +83,14 @@ Filtrar por origem:
 curl "http://localhost:8000/api/snapshots?tipo_arquivo=xlsx"
 ```
 
+Excluir um snapshot (tambem remove observacoes, debitos, o arquivo bruto e qualquer entidade que fique sem nenhuma observacao remanescente; nao pode ser desfeito):
+
+```bash
+curl -X DELETE http://localhost:8000/api/snapshots/1
+```
+
+Na interface web, o mesmo pode ser feito clicando no icone de lixeira ao lado de cada item em "Ultimos envios" (aba Uploads).
+
 ## Comandos operacionais
 
 Ver logs de todos os servicos:

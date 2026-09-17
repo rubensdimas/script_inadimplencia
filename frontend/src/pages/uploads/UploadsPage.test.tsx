@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -22,6 +22,10 @@ function mockHistoricoVazio() {
 }
 
 describe("UploadsPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renderiza os dois cartoes de upload independentes", () => {
     mockHistoricoVazio();
     renderComProvedores(<UploadsPage />);
@@ -97,6 +101,69 @@ describe("UploadsPage", () => {
 
     await waitFor(() =>
       expect(within(cartaoCsv).getByText("CPF/CNPJ deve conter 11 ou 14 digitos")).toBeInTheDocument(),
+    );
+  });
+
+  it("exclui um snapshot do historico apos confirmacao", async () => {
+    server.use(http.get("/api/snapshots", () => HttpResponse.json([SNAPSHOT_CSV])));
+    let chamadaDelete = false;
+    server.use(
+      http.delete("/api/snapshots/10", () => {
+        chamadaDelete = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const usuario = userEvent.setup();
+    renderComProvedores(<UploadsPage />);
+
+    const cartaoCsv = screen.getByTestId("upload-card-csv");
+    await within(cartaoCsv).findByText("relatorio.csv");
+    await usuario.click(within(cartaoCsv).getByRole("button", { name: /excluir snapshot/i }));
+
+    expect(window.confirm).toHaveBeenCalled();
+    await waitFor(() => expect(chamadaDelete).toBe(true));
+  });
+
+  it("nao exclui o snapshot quando o usuario cancela a confirmacao", async () => {
+    server.use(http.get("/api/snapshots", () => HttpResponse.json([SNAPSHOT_CSV])));
+    let chamadaDelete = false;
+    server.use(
+      http.delete("/api/snapshots/10", () => {
+        chamadaDelete = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const usuario = userEvent.setup();
+    renderComProvedores(<UploadsPage />);
+
+    const cartaoCsv = screen.getByTestId("upload-card-csv");
+    await within(cartaoCsv).findByText("relatorio.csv");
+    await usuario.click(within(cartaoCsv).getByRole("button", { name: /excluir snapshot/i }));
+
+    expect(window.confirm).toHaveBeenCalled();
+    expect(chamadaDelete).toBe(false);
+    expect(within(cartaoCsv).getByText("relatorio.csv")).toBeInTheDocument();
+  });
+
+  it("mostra mensagem de erro quando a exclusao do snapshot falha", async () => {
+    server.use(http.get("/api/snapshots", () => HttpResponse.json([SNAPSHOT_CSV])));
+    server.use(
+      http.delete("/api/snapshots/10", () =>
+        HttpResponse.json({ detail: "snapshot nao encontrado" }, { status: 404 }),
+      ),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const usuario = userEvent.setup();
+    renderComProvedores(<UploadsPage />);
+
+    const cartaoCsv = screen.getByTestId("upload-card-csv");
+    await within(cartaoCsv).findByText("relatorio.csv");
+    await usuario.click(within(cartaoCsv).getByRole("button", { name: /excluir snapshot/i }));
+
+    await waitFor(() =>
+      expect(within(cartaoCsv).getByText("snapshot nao encontrado")).toBeInTheDocument(),
     );
   });
 });
