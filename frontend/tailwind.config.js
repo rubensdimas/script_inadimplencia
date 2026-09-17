@@ -4,6 +4,11 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Public Sans"', "system-ui", "sans-serif"],
+        serif: ['"PT Serif"', "Georgia", "serif"],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -26,6 +31,10 @@ export default {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
+        seal: {
+          DEFAULT: "hsl(var(--seal))",
+          foreground: "hsl(var(--seal-foreground))",
+        },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -33,6 +42,23 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        serious: {
+          DEFAULT: "hsl(var(--serious))",
+          foreground: "hsl(var(--serious-foreground))",
+        },
+        // Slots categoricos (tipo de debito) - ordem fixa validada para CVD,
+        // nunca ciclada nem reatribuida por rank. Ver docs/DESIGN.md.
+        cat: {
+          1: "hsl(var(--cat-1))",
+          2: "hsl(var(--cat-2))",
+          3: "hsl(var(--cat-3))",
+          4: "hsl(var(--cat-4))",
+          5: "hsl(var(--cat-5))",
         },
       },
       borderRadius: {

@@ -2,6 +2,13 @@ import type { components } from "./schema";
 
 export type Snapshot = components["schemas"]["SnapshotOut"];
 export type TipoArquivo = "csv" | "xlsx";
+export type EntidadeResumo = components["schemas"]["EntidadeResumoOut"];
+export type Dashboard = components["schemas"]["DashboardOut"];
+
+interface ParametrosSnapshotPar {
+  csvSnapshotId?: number;
+  xlsxSnapshotId?: number;
+}
 
 /**
  * Formato de erro devolvido pela API em respostas nao-2xx. O backend usa duas
@@ -81,4 +88,16 @@ export function listarSnapshots(tipoArquivo?: TipoArquivo): Promise<Snapshot[]> 
   }
   const query = params.toString();
   return request<Snapshot[]>(`/api/snapshots${query ? `?${query}` : ""}`);
+}
+
+function paramsSnapshotPar({ csvSnapshotId, xlsxSnapshotId }: ParametrosSnapshotPar): URLSearchParams {
+  const params = new URLSearchParams();
+  if (csvSnapshotId !== undefined) params.set("csv_snapshot_id", String(csvSnapshotId));
+  if (xlsxSnapshotId !== undefined) params.set("xlsx_snapshot_id", String(xlsxSnapshotId));
+  return params;
+}
+
+export function obterDashboard(parametros: ParametrosSnapshotPar = {}): Promise<Dashboard> {
+  const query = paramsSnapshotPar(parametros).toString();
+  return request<Dashboard>(`/api/dashboard${query ? `?${query}` : ""}`);
 }

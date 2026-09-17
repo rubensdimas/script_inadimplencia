@@ -14,8 +14,8 @@ export function AppShell() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-          <span className="text-sm font-semibold tracking-tight">Inadimplência CREFITO11</span>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+          <span className="font-serif text-base font-bold tracking-tight">Inadimplência CREFITO11</span>
           <nav className="flex flex-wrap gap-1">
             {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
               <NavLink
@@ -38,7 +38,7 @@ export function AppShell() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <Outlet />
       </main>
     </div>

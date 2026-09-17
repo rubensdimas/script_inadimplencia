@@ -2,61 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Identidade visual: registro/ledger administrativo, nao SaaS generico.
+ * --paper/--surface criam profundidade por contraste (papel timbrado x
+ * cartao), nunca por sombra. Cores de severidade (--serious/--destructive/
+ * --success/--warning) e a familia categorica (--cat-1..5) sao as mesmas
+ * validadas para seguranca de daltonismo pelo skill de dataviz; nao trocar
+ * por outros tons sem revalidar (ver docs/DESIGN.md).
+ */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 20% 12%;
+  --background: 150 9% 91%; /* paper #E7EBE9 */
+  --foreground: 169 20% 11%; /* ink #16211F */
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 20% 12%;
+  --card: 0 0% 100%; /* surface #FFFFFF */
+  --card-foreground: 169 20% 11%;
 
-  --muted: 210 20% 96%;
-  --muted-foreground: 215 15% 42%;
+  --muted: 140 9% 87%; /* #DBE1DD */
+  --muted-foreground: 157 7% 35%; /* #54615C */
 
-  --border: 214 20% 89%;
-  --input: 214 20% 89%;
-  --ring: 217 91% 55%;
+  --border: 150 8% 80%; /* line #C9D1CD */
+  --input: 150 8% 80%;
+  --ring: 172 65% 32%; /* #1C8677 */
 
-  --primary: 217 91% 45%;
+  --primary: 172 74% 21%; /* brand petroleo #0E5C52 */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 20% 96%;
-  --secondary-foreground: 222 20% 12%;
+  --secondary: 140 9% 87%;
+  --secondary-foreground: 169 20% 11%;
 
-  --destructive: 0 72% 45%;
+  --seal: 38 69% 39%; /* latao #A9761F */
+  --seal-foreground: 0 0% 100%;
+
+  /* Paleta de status (fixa, validada) - sempre com icone + rotulo */
+  --success: 120 86% 34%; /* bom / regularizado #0ca30c */
+  --success-foreground: 0 0% 100%;
+  --warning: 41 96% 54%; /* atencao #fab219 */
+  --warning-foreground: 169 20% 11%;
+  --serious: 17 79% 64%; /* grave / divida ativa administrativa #ec835a */
+  --serious-foreground: 169 20% 11%;
+  --destructive: 0 61% 52%; /* critico / divida ativa executiva #d03b3b */
   --destructive-foreground: 0 0% 100%;
 
-  --success: 152 60% 32%;
-  --success-foreground: 0 0% 100%;
+  /* Paleta categorica (tipo de debito) - ordem fixa validada para CVD */
+  --cat-1: 213 68% 50%; /* azul #2a78d6 */
+  --cat-2: 17 82% 56%; /* laranja #eb6834 */
+  --cat-3: 159 73% 40%; /* agua #1baf7a */
+  --cat-4: 41 100% 46%; /* amarelo #eda100 */
+  --cat-5: 337 70% 70%; /* magenta #e87ba4 */
 
-  --radius: 0.5rem;
+  --radius: 0.375rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: 222 25% 8%;
-    --foreground: 210 20% 94%;
+    --background: 163 16% 8%; /* #121917 */
+    --foreground: 144 12% 92%; /* #E7ECE9 */
 
-    --card: 222 22% 11%;
-    --card-foreground: 210 20% 94%;
+    --card: 168 17% 11%; /* #182220 */
+    --card-foreground: 144 12% 92%;
 
-    --muted: 222 18% 16%;
-    --muted-foreground: 215 15% 65%;
+    --muted: 167 14% 12%; /* #1B2422 */
+    --muted-foreground: 159 10% 66%; /* #9FB0AA */
 
-    --border: 222 15% 20%;
-    --input: 222 15% 20%;
-    --ring: 217 91% 60%;
+    --border: 160 12% 19%; /* #2B3733 */
+    --input: 160 12% 19%;
+    --ring: 169 45% 45%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 25% 8%;
+    --primary: 169 45% 45%; /* #3FA593 */
+    --primary-foreground: 163 16% 8%;
 
-    --secondary: 222 18% 16%;
-    --secondary-foreground: 210 20% 94%;
+    --secondary: 167 14% 12%;
+    --secondary-foreground: 144 12% 92%;
 
-    --destructive: 0 63% 48%;
-    --destructive-foreground: 0 0% 100%;
+    --seal: 38 61% 56%; /* #D3A24B */
+    --seal-foreground: 163 16% 8%;
 
-    --success: 152 55% 42%;
-    --success-foreground: 222 25% 8%;
+    --success: 120 50% 50%; /* #3fbf3f */
+    --success-foreground: 163 16% 8%;
+    --warning: 42 91% 64%; /* #f7c34e */
+    --warning-foreground: 163 16% 8%;
+    --serious: 18 79% 72%; /* #f0a07f */
+    --serious-foreground: 163 16% 8%;
+    --destructive: 0 72% 65%; /* #e66767 */
+    --destructive-foreground: 163 16% 8%;
+
+    /* Mesmos 5 tons categoricos, passo escuro (ver dataviz/palette.md) */
+    --cat-1: 213 74% 60%; /* #3987e5 */
+    --cat-2: 17 72% 51%; /* #d95926 */
+    --cat-3: 158 71% 35%; /* #199e70 */
+    --cat-4: 38 100% 39%; /* #c98500 */
+    --cat-5: 337 55% 60%; /* #d55181 */
   }
 }
 
@@ -68,4 +103,11 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-feature-settings: "tnum" 1, "cv02" 1;
+}
+
+/* Algarismos tabulares apenas onde precisam alinhar em coluna (tabelas,
+   eixos); numeros grandes isolados (KPIs) usam a figura proporcional
+   padrao da fonte. */
+.tabular-figures {
+  font-variant-numeric: tabular-nums;
 }

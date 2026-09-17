@@ -1,8 +1,15 @@
+import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { UploadsPage } from "@/pages/uploads/UploadsPage";
+
+// Recharts sozinho responde pela maior parte do bundle; so a tela de
+// Dashboard usa grafico, entao ela e a unica carregada sob demanda.
+const DashboardPage = lazy(() =>
+  import("@/pages/dashboard/DashboardPage").then((modulo) => ({ default: modulo.DashboardPage })),
+);
 
 function App() {
   return (
@@ -11,10 +18,9 @@ function App() {
         <Route
           index
           element={
-            <PlaceholderPage
-              titulo="Dashboard"
-              descricao="Indicadores, rankings, dívida ativa, distribuições e evolução histórica."
-            />
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando…</p>}>
+              <DashboardPage />
+            </Suspense>
           }
         />
         <Route path="uploads" element={<UploadsPage />} />

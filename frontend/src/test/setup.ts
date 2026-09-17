@@ -12,6 +12,17 @@ import { server } from "./server";
 // essas globais ja sao consistentes entre si.
 Object.assign(globalThis, { fetch, File, FormData, Headers, Request, Response });
 
+// jsdom nao implementa ResizeObserver; o Recharts (ResponsiveContainer) usa
+// para medir o container antes de desenhar. Sem isso os graficos do
+// dashboard derrubam qualquer teste que os monte, mesmo sem cobrir o
+// desenho em si (isso fica para o Playwright, ver docs/DESIGN.md).
+class ResizeObserverPolyfill {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+Object.assign(globalThis, { ResizeObserver: ResizeObserverPolyfill });
+
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());

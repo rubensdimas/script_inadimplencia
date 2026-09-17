@@ -53,7 +53,7 @@ Commits principais:
 - Python: `python -m compileall -q app alembic tests` concluiu com sucesso.
 - Alembic: `alembic current` indicou `0002_historical_observations (head)`.
 - Alembic: `alembic check` informou `No new upgrade operations detected`.
-- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `10 passed`, dentro e fora do Docker.
+- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `14 passed`, dentro e fora do Docker.
 - Frontend: `npm run build` (`tsc -b && vite build`) concluiu sem erros, dentro e fora do Docker.
 - Smoke test manual: stack subida via `docker compose up -d`, proxy `/api` do Vite confirmado ponta a ponta contra o backend real (`GET /api/snapshots` via `http://localhost:5173/api/snapshots`).
 - Validacao exploratoria local, sem versionar dados reais:
@@ -84,11 +84,24 @@ Decisoes tecnicas:
 
 **Achado corrigido durante a verificacao:** os testes passavam no host mas falhavam dentro do container Docker do frontend com `TypeError: webidl.util.markAsUncloneable is not a function`. Causa: o setup de teste alinha `fetch`/`File`/`FormData` ao pacote `undici` (o ambiente jsdom instala sua propria implementacao dessas classes, incompativel com o fetch nativo do Node, o que quebrava upload multipart nos testes). A versao mais recente do `undici` (usada tanto pelo projeto quanto internamente pelo jsdom) exige Node >=22.19; a imagem `node:20-slim` do `frontend/Dockerfile` nao atendia esse requisito, embora o host (Node 24) mascarasse o problema. Corrigido subindo a imagem para `node:24-slim` e revalidado com `npm run test`/`npm run build` dentro do container.
 
+## Tarefa 4 (fatia 2 - Dashboard): concluida
+
+Identidade visual definida com o skill `frontend-design` (plano + autocritica contra clicheis, documentado em [`docs/DESIGN.md`](DESIGN.md)) e aplicada em todo o app, substituindo o placeholder azul da fatia 1. Cores de severidade e a paleta categorica (tipo de debito) usam os valores validados pelo skill `dataviz` (`scripts/validate_palette.js`), nao escolhidos a olho.
+
+Entregue: seletor de snapshot CSV/XLSX (estado na URL via `useSearchParams`, nao em contexto local — linkavel e consistente com os parametros que a API ja usa), tira de indicadores, rankings por obrigacoes e por valor total, painel de divida ativa, cruzamento situacao cadastral x debito, distribuicoes por ano/tipo/situacao de pagamento e evolucao entre snapshots (Recharts).
+
+Tres achados reais encontrados por captura de tela (nao so leitura de codigo) e corrigidos antes de fechar a tarefa:
+
+- **Rankings sem limite:** `ranking_obrigacoes`/`divida_ativa` vem inteiros da API (correto — a mesma consulta alimenta a exportacao), mas o Dashboard renderizava as 5.331 entidades/6.518 debitos sem corte, inviabilizando a leitura. `RankingList`/`DividaAtivaPanel` agora limitam a exibicao (10/12) com um rodape "+N outras" — a lista completa fica para a tela de Entidades (Tarefa 5).
+- **Overflow horizontal no mobile:** grids responsivos declarados so com o prefixo do breakpoint maior (`lg:grid-cols-3`, sem uma base) criam colunas implicitas dimensionadas pelo conteudo (nao `1fr`) abaixo desse breakpoint; um nome de entidade sem espacos forcava a pagina inteira a alargar. Corrigido declarando a coluna base explicitamente em todo grid responsivo (`grid-cols-1 ... lg:grid-cols-3`) — documentado em `docs/DESIGN.md` para nao repetir.
+- **Graficos de barra vazios em captura headless:** o eixo Y aparecia com o valor certo mas as barras nao apareciam. Causa dupla: `margin.left` negativo cortava os digitos mais significativos do rotulo do eixo, e a animacao de entrada padrao do Recharts nao resolve sob `--virtual-time-budget` do Chrome headless. Corrigido com `margin.left: 0` + `YAxis width` maior e `isAnimationActive={false}` em todo grafico — a segunda parte tambem e a escolha certa por design (motion so quando responde a uma acao do usuario, nao decoracao de carregamento de pagina).
+
+Testes de componente cobrem indicadores formatados, corte do ranking com contagem do restante, estado de erro (`ApiError`) e troca de snapshot atualizando a URL e refazendo a busca; graficos (Recharts) ficam fora da cobertura de unidade (jsdom nao mede layout real) e vao para o Playwright da Tarefa 5.
+
 ## Proximas etapas
 
-1. Tarefa 4 (fatia 2): pagina de Dashboard com seletores de snapshot CSV/XLSX, indicadores, rankings, divida ativa, distribuicoes e evolucao (Recharts).
-2. Tarefa 5: telas de Entidades (busca/filtro/paginacao/detalhe historico) e Pendencias de pareamento; acoes de exportacao nas telas relevantes.
-3. Tarefa 5: Playwright cobrindo upload, troca de snapshots, dashboard, busca, pendencias e exportacao; validacao de viewports desktop/mobile.
+1. Tarefa 5: telas de Entidades (busca/filtro/paginacao/detalhe historico) e Pendencias de pareamento; acoes de exportacao nas telas relevantes.
+2. Tarefa 5: Playwright cobrindo upload, troca de snapshots, dashboard, busca, pendencias e exportacao; validacao de viewports desktop/mobile.
 
 O plano detalhado esta em [`docs/superpowers/plans/2026-09-15-crefito11-conclusao-sistema.md`](superpowers/plans/2026-09-15-crefito11-conclusao-sistema.md).
 
