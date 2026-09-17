@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 20% 12%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 20% 12%;
+
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 15% 42%;
+
+  --border: 214 20% 89%;
+  --input: 214 20% 89%;
+  --ring: 217 91% 55%;
+
+  --primary: 217 91% 45%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 222 20% 12%;
+
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 152 60% 32%;
+  --success-foreground: 0 0% 100%;
+
+  --radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 222 25% 8%;
+    --foreground: 210 20% 94%;
+
+    --card: 222 22% 11%;
+    --card-foreground: 210 20% 94%;
+
+    --muted: 222 18% 16%;
+    --muted-foreground: 215 15% 65%;
+
+    --border: 222 15% 20%;
+    --input: 222 15% 20%;
+    --ring: 217 91% 60%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 25% 8%;
+
+    --secondary: 222 18% 16%;
+    --secondary-foreground: 210 20% 94%;
+
+    --destructive: 0 63% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 42%;
+    --success-foreground: 222 25% 8%;
+  }
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "tnum" 1, "cv02" 1;
+}
