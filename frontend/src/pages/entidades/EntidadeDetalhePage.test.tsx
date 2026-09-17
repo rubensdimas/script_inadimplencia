@@ -8,7 +8,37 @@ import { server } from "@/test/server";
 
 import { EntidadeDetalhePage } from "./EntidadeDetalhePage";
 
-function detalheFixture() {
+const OBSERVACAO_BASE = {
+  observacao_id: 100,
+  nome_original: "Ana Beatriz Costa",
+  nome_normalizado: "ANA BEATRIZ COSTA",
+  cpf_cnpj: "***.***.***-80",
+  tipo_pessoa: "Profissional",
+  registro_resumido: "23263-F",
+  categoria: "FISIOTERAPEUTA",
+  subregiao: "Não informado",
+  situacao_registro: "ATIVO",
+  tipo_arquivo: "xlsx",
+};
+
+const DEBITO_BASE = {
+  origem: "xlsx",
+  numero_parcela: null,
+  data_vencimento: null,
+  valor_original: "600.00",
+  valor_devido: "600.00",
+  valor_total: "600.00",
+  situacao_pagamento: "Não pago",
+  situacao_parcelamento: "Não parcelado",
+};
+
+// snapshot 3 = mais antigo, snapshot 4 = mais recente (o snapshot XLSX mais
+// recente do sistema, nao so o mais recente em que a entidade apareceu).
+function detalheFixture(overrides: Partial<ReturnType<typeof detalheFixtureBase>> = {}) {
+  return { ...detalheFixtureBase(), ...overrides };
+}
+
+function detalheFixtureBase() {
   return {
     entidade: {
       id: 3031,
@@ -23,70 +53,61 @@ function detalheFixture() {
       situacao_registro: "ATIVO",
     },
     observacoes: [
-      {
-        snapshot_id: 3,
-        tipo_arquivo: "xlsx",
-        data_snapshot: "2026-08-15T10:00:00Z",
-        observacao_id: 100,
-        nome_original: "Ana Beatriz Costa",
-        nome_normalizado: "ANA BEATRIZ COSTA",
-        cpf_cnpj: "***.***.***-80",
-        tipo_pessoa: "Profissional",
-        registro_resumido: "23263-F",
-        categoria: "FISIOTERAPEUTA",
-        subregiao: "Não informado",
-        situacao_registro: "ATIVO",
-      },
-      {
-        snapshot_id: 4,
-        tipo_arquivo: "xlsx",
-        data_snapshot: "2026-09-15T10:00:00Z",
-        observacao_id: 22028,
-        nome_original: "Ana Beatriz Costa",
-        nome_normalizado: "ANA BEATRIZ COSTA",
-        cpf_cnpj: "***.***.***-80",
-        tipo_pessoa: "Profissional",
-        registro_resumido: "23263-F",
-        categoria: "FISIOTERAPEUTA",
-        subregiao: "Não informado",
-        situacao_registro: "ATIVO",
-      },
+      { ...OBSERVACAO_BASE, snapshot_id: 3, data_snapshot: "2026-08-15T10:00:00Z", observacao_id: 100 },
+      { ...OBSERVACAO_BASE, snapshot_id: 4, data_snapshot: "2026-09-15T10:00:00Z", observacao_id: 22028 },
     ],
     debitos: [
+      // ANUIDADE 2026 aparece nos dois snapshots (a mesma obrigacao "duplicada"
+      // que motivou o ajuste) — deve virar uma linha so, em aberto.
       {
+        ...DEBITO_BASE,
         id: 1,
         snapshot_id: 3,
         data_snapshot: "2026-08-15T10:00:00Z",
-        origem: "xlsx",
-        ano_referencia: 2025,
+        ano_referencia: 2026,
         tipo_debito: "ANUIDADE",
-        numero_parcela: null,
-        data_vencimento: null,
-        valor_original: "600.00",
-        valor_devido: "600.00",
-        valor_total: "600.00",
-        situacao_pagamento: "Não pago",
         situacao_divida_ativa: "Não lançado",
-        situacao_parcelamento: "Não parcelado",
       },
       {
+        ...DEBITO_BASE,
         id: 2,
         snapshot_id: 4,
         data_snapshot: "2026-09-15T10:00:00Z",
-        origem: "xlsx",
         ano_referencia: 2026,
         tipo_debito: "ANUIDADE",
-        numero_parcela: null,
-        data_vencimento: null,
-        valor_original: "620.00",
-        valor_devido: "620.00",
-        valor_total: "620.00",
-        situacao_pagamento: "Não pago",
         situacao_divida_ativa: "Administrativa",
-        situacao_parcelamento: "Não parcelado",
+        valor_total: "650.00",
+      },
+      // MULTA ELEITORAL 2025 so aparece no snapshot antigo — quitada.
+      {
+        ...DEBITO_BASE,
+        id: 3,
+        snapshot_id: 3,
+        data_snapshot: "2026-08-15T10:00:00Z",
+        ano_referencia: 2025,
+        tipo_debito: "MULTA ELEITORAL",
+        situacao_divida_ativa: "Não lançado",
+        valor_total: "150.00",
       },
     ],
   };
+}
+
+function mockSnapshotMaisRecente(snapshotId: number, dataSnapshot: string) {
+  server.use(
+    http.get("/api/snapshots", () =>
+      HttpResponse.json([
+        {
+          id: snapshotId,
+          tipo_arquivo: "xlsx",
+          nome_arquivo_original: "debitos.xlsx",
+          data_snapshot: dataSnapshot,
+          data_upload: dataSnapshot,
+          linhas_invalidas: [],
+        },
+      ]),
+    ),
+  );
 }
 
 function renderDetalhe(id = "3031") {
@@ -101,7 +122,8 @@ function renderDetalhe(id = "3031") {
 }
 
 describe("EntidadeDetalhePage", () => {
-  it("mostra o resumo e o historico cadastral da entidade", async () => {
+  it("mostra o resumo cadastral da entidade", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
     server.use(http.get("/api/entities/3031", () => HttpResponse.json(detalheFixture())));
 
     renderDetalhe();
@@ -111,23 +133,82 @@ describe("EntidadeDetalhePage", () => {
     expect(screen.getAllByText("ATIVO").length).toBeGreaterThan(0);
   });
 
-  it("so mostra o selo de divida ativa quando a situacao e Administrativa ou Executiva", async () => {
+  it("agrupa a mesma obrigacao repetida em uma linha, com a situacao correta", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
     server.use(http.get("/api/entities/3031", () => HttpResponse.json(detalheFixture())));
 
     renderDetalhe();
     await screen.findByRole("heading", { name: "Ana Beatriz Costa" });
 
-    const tabela = screen.getByRole("table");
-    expect(within(tabela).getByText("Administrativa")).toBeInTheDocument();
-    // "Nao lancado" nao e divida ativa de verdade: deve aparecer como travessao, nao como selo.
-    expect(within(tabela).queryByText("Não lançado")).not.toBeInTheDocument();
-    // A tabela mostra do snapshot mais recente ao mais antigo: linha 1 e o
-    // debito de 2026 (Administrativa), linha 2 e o de 2025 (Nao lancado).
-    const linhas = within(tabela).getAllByRole("row");
-    expect(within(linhas[2]).getByText("—")).toBeInTheDocument();
+    // Duas obrigacoes distintas (ANUIDADE 2026 e MULTA ELEITORAL 2025), nao
+    // tres linhas (nao repete a ANUIDADE por aparecer em dois snapshots).
+    const tabelaObrigacoes = screen.getAllByRole("table")[0];
+    const linhas = within(tabelaObrigacoes).getAllByRole("row");
+    expect(linhas).toHaveLength(3); // cabecalho + 2 obrigacoes
+
+    expect(within(tabelaObrigacoes).getByText("Em aberto")).toBeInTheDocument();
+    expect(within(tabelaObrigacoes).getByText("Quitada")).toBeInTheDocument();
+    // Divida ativa da ANUIDADE (em aberto) usa a ocorrencia mais recente.
+    expect(within(tabelaObrigacoes).getByText("Administrativa")).toBeInTheDocument();
+    // "Nao lancado" nunca aparece como selo — nem para a obrigacao quitada.
+    expect(within(tabelaObrigacoes).queryByText("Não lançado")).not.toBeInTheDocument();
+  });
+
+  it("mostra so uma entrada de changelog cadastral quando nada muda entre snapshots", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
+    server.use(http.get("/api/entities/3031", () => HttpResponse.json(detalheFixture())));
+
+    renderDetalhe();
+
+    expect(await screen.findByText("Observada pela primeira vez neste snapshot.")).toBeInTheDocument();
+    expect(screen.queryByText(/ATIVO → BAIXADO/)).not.toBeInTheDocument();
+  });
+
+  it("registra a mudanca de situacao cadastral no changelog", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
+    const fixture = detalheFixtureBase();
+    fixture.observacoes[1] = { ...fixture.observacoes[1], situacao_registro: "BAIXADO" };
+    server.use(http.get("/api/entities/3031", () => HttpResponse.json(fixture)));
+
+    renderDetalhe();
+
+    expect(await screen.findByText(/ATIVO → BAIXADO/)).toBeInTheDocument();
+  });
+
+  it("avisa quando a entidade nao aparece no snapshot XLSX mais recente do sistema", async () => {
+    // O snapshot mais recente do SISTEMA (id 9) e mais novo que a ultima
+    // observacao desta entidade (snapshot 4) — provavelmente regularizada.
+    mockSnapshotMaisRecente(9, "2026-10-01T10:00:00Z");
+    server.use(http.get("/api/entities/3031", () => HttpResponse.json(detalheFixture())));
+
+    renderDetalhe();
+
+    expect(await screen.findByText(/provavelmente foi regularizada/)).toBeInTheDocument();
+  });
+
+  it("nao avisa quando a entidade aparece no snapshot XLSX mais recente", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
+    server.use(http.get("/api/entities/3031", () => HttpResponse.json(detalheFixture())));
+
+    renderDetalhe();
+
+    await screen.findByRole("heading", { name: "Ana Beatriz Costa" });
+    expect(screen.queryByText(/provavelmente foi regularizada/)).not.toBeInTheDocument();
+  });
+
+  it("mantem o historico bruto por snapshot escondido atras de um details fechado", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
+    server.use(http.get("/api/entities/3031", () => HttpResponse.json(detalheFixture())));
+
+    renderDetalhe();
+    await screen.findByRole("heading", { name: "Ana Beatriz Costa" });
+
+    const detalhesBrutos = screen.getAllByText(/bruto/i).map((elemento) => elemento.closest("details"));
+    expect(detalhesBrutos.every((details) => details && !details.open)).toBe(true);
   });
 
   it("mostra mensagem de erro quando a entidade nao e encontrada", async () => {
+    mockSnapshotMaisRecente(4, "2026-09-15T10:00:00Z");
     server.use(
       http.get("/api/entities/999", () => HttpResponse.json({ detail: "entidade nao encontrada" }, { status: 404 })),
     );

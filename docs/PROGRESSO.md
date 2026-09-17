@@ -53,7 +53,7 @@ Commits principais:
 - Python: `python -m compileall -q app alembic tests` concluiu com sucesso.
 - Alembic: `alembic current` indicou `0002_historical_observations (head)`.
 - Alembic: `alembic check` informou `No new upgrade operations detected`.
-- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `32 passed`, dentro e fora do Docker.
+- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `46 passed`, dentro e fora do Docker.
 - Frontend: `npm run build` (`tsc -b && vite build`) concluiu sem erros, dentro e fora do Docker.
 - Smoke test manual: stack subida via `docker compose up -d`, proxy `/api` do Vite confirmado ponta a ponta contra o backend real (`GET /api/snapshots` via `http://localhost:5173/api/snapshots`).
 - Validacao exploratoria local, sem versionar dados reais:
@@ -141,6 +141,19 @@ Backend: `DELETE /api/snapshots/{id}` (204 ao apagar, 404 se nao existe). `delet
 Frontend: botao de lixeira por linha em "Ultimos envios" (`UploadCard.tsx`), com `deletarSnapshot()` no cliente da API e invalidacao da query de historico apos sucesso. 3 testes novos cobrindo confirmacao aceita, confirmacao cancelada e erro de exclusao. 32 testes de frontend agora.
 
 Validado tambem contra a stack real rodando em Postgres (nao so os testes): apagar um snapshot XLSX duplicado (5.331 entidades no total) removeu corretamente as 37 entidades que so existiam naquele snapshot, preservando as demais — confirmado por contagem antes/depois via `/api/entities`.
+
+## Redesenho do historico em /entidades/:id: concluido
+
+Pedido do usuario apos usar a tela: com mais de um snapshot, a mesma obrigacao (ano + tipo) repetida uma vez por snapshot em que continuou em aberto parecia "duplicada", e o historico cadastral listava uma entrada quase identica por snapshot (dado que raramente muda). O usuario tambem trouxe um fato de dominio central: o XLSX so lista quem esta inadimplente — um debito quitado nao muda de status, ele desaparece do snapshot seguinte (nao ha valor "Pago" no arquivo).
+
+Decisoes tomadas em par com o usuario (skill de grilling), todas aprovadas:
+
+1. **Debitos agrupados por obrigacao** (`ano_referencia` + `tipo_debito`), uma linha so por obrigacao em vez de uma por snapshot em que apareceu. Situacao ("Em aberto" / "Quitada") derivada por presenca/ausencia no snapshot XLSX mais recente do *sistema* — nao ha outro sinal disponivel no dado de origem. Colunas: tipo, ano, situacao, divida ativa (da ocorrencia mais recente), visto pela 1ª vez, visto por ultimo, valor total (da ocorrencia mais recente).
+2. **Changelog cadastral em vez de lista por snapshot**: so entra uma entrada quando algo muda de fato em relacao ao snapshot anterior (nome, categoria, subregiao, situacao de registro, registro resumido); a primeira observacao sempre entra como marco inicial. Sem mudanca nenhuma, a secao mostra so "Sem mudancas cadastrais registradas."
+3. **Aviso quando a propria entidade some do snapshot mais recente do sistema** (nao so do snapshot mais recente em que ela apareceu) — o sinal mais forte de regularizacao completa, que a tela antes nao comunicava de jeito nenhum.
+4. **Historico bruto por snapshot preservado atras de `<details>` fechado por padrao** (uma para observacoes, uma para debitos) — ferramenta de fiscalizacao financeira, descartar a granularidade de auditoria seria perda desnecessaria pelo custo de so uma secao recolhida.
+
+Logica pura de agrupamento/changelog isolada em `pages/entidades/historico.ts` (`agruparObrigacoes`, `construirChangelogCadastral`), testada isoladamente (9 testes) alem dos testes de integracao da pagina (8 testes, reescritos). 46 testes de frontend agora. Validado visualmente contra a stack real (screenshot desktop e mobile 500px, sem regressao de layout).
 
 ## Proximas etapas
 

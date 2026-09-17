@@ -161,6 +161,30 @@ Construídos com Recharts seguindo o skill `dataviz`:
   situação grave). Usar `ehDividaAtiva()` (`src/lib/divida-ativa.ts`), nunca
   `situacao ? <Badge>... : null` direto — isso já pintou um badge de "atenção" no
   débito mais comum e inofensivo do histórico de uma entidade.
+- **Presença/ausência como o próprio dado, não um status explícito**: o XLSX do
+  CREFITO11 só lista quem está inadimplente — não existe um valor "Pago" no arquivo.
+  Um débito quitado não muda de status, ele *desaparece* do snapshot seguinte; uma
+  entidade totalmente regularizada desaparece do relatório inteiro. Isso significa
+  que "histórico" aqui não é uma lista de eventos (como um changelog convencional),
+  e sim uma serie de retratos onde a ausência é a informação — agrupar por
+  identidade (ano + tipo de débito) e derivar a situação por presença no snapshot
+  mais recente (`agruparObrigacoes` em `pages/entidades/historico.ts`) é o que
+  transforma "a mesma linha repetida a cada snapshot" (lida como duplicação) em
+  "quando isso foi resolvido". O mesmo raciocínio vale no nível da entidade: ela
+  sumir do snapshot XLSX mais recente do *sistema* (não só do snapshot mais recente
+  em que ela apareceu) é o sinal mais forte de regularização total, e vale um aviso
+  explícito na tela, não silêncio.
+- **Dado cadastral quase nunca muda — não repita, mostre só a mudança**: listar uma
+  entrada por snapshot para um campo estável (nome, categoria, situação de
+  registro) é ruído quase sempre idêntico. Um changelog que só registra uma entrada
+  quando algo difere do snapshot anterior (`construirChangelogCadastral`) deixa a
+  mudança de verdade (ex.: ATIVO → BAIXADO) visível em vez de perdida em repetição.
+- **`<details>`/`<summary>` nativo para dado bruto de auditoria**: quando um resumo
+  (agrupado ou filtrado) substitui a visão de "uma linha por snapshot" como a leitura
+  padrão, a visão bruta ainda vale a pena manter — é uma ferramenta de fiscalização
+  financeira, descartar a granularidade de auditoria é uma perda desnecessária. Um
+  `<details>` fechado por padrão custa zero estado de React e é acessível de graça;
+  não construir um componente de disclosure novo para isso.
 
 ## Erros conhecidos evitados (não repetir)
 
