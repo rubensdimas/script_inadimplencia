@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -15,6 +16,8 @@ from app.normalize import normalize_nome
 from app.parsers.csv_parser import RegistroCsv, parse_csv
 from app.parsers.xlsx_parser import RegistroXlsx, parse_xlsx
 from app.snapshot_date import extrair_data_snapshot
+
+logger = logging.getLogger(__name__)
 
 
 def _raw_uploads_dir() -> Path:
@@ -109,10 +112,26 @@ def _persistir_csv(sessao: Session, snapshot: Snapshot, registros: Sequence[Regi
         )
 
 
-def _persistir_xlsx(sessao: Session, snapshot: Snapshot, registros: Sequence[RegistroXlsx]) -> None:
+@dataclass
+class ResultadoPersistenciaXlsx:
+    linhas_invalidas: list[str] = field(default_factory=list)
+    observacoes_persistidas: int = 0
+    debitos_persistidos: int = 0
+
+
+def _persistir_xlsx(
+    sessao: Session, snapshot: Snapshot, registros: Sequence[RegistroXlsx]
+) -> ResultadoPersistenciaXlsx:
     cache_entidades: dict[str, Entidade] = {}
+    resultado = ResultadoPersistenciaXlsx()
     for registro in registros:
-        documento = normalizar_documento(registro.cpf_cnpj)
+        try:
+            documento = normalizar_documento(registro.cpf_cnpj)
+        except ErroIngestao as exc:
+            resultado.linhas_invalidas.append(
+                f"linha {registro.linha} ({registro.nome_original}): {exc}"
+            )
+            continue
         entidade = (
             _entidade_por_documento(sessao, cache_entidades, documento, registro.tipo_pessoa)
             if documento is not None
@@ -131,6 +150,7 @@ def _persistir_xlsx(sessao: Session, snapshot: Snapshot, registros: Sequence[Reg
             situacao_registro=registro.situacao_registro,
         )
         sessao.add(observacao)
+        resultado.observacoes_persistidas += 1
         for debito in registro.debitos:
             if not debito.tipo_debito:
                 raise ErroIngestao("debito XLSX sem tipo")
@@ -149,6 +169,11 @@ def _persistir_xlsx(sessao: Session, snapshot: Snapshot, registros: Sequence[Reg
                     situacao_parcelamento=debito.situacao_parcelamento,
                 )
             )
+            resultado.debitos_persistidos += 1
+
+    if resultado.linhas_invalidas and len(resultado.linhas_invalidas) == len(registros):
+        raise ErroIngestao("; ".join(resultado.linhas_invalidas))
+    return resultado
 
 
 def _ingerir(
@@ -159,13 +184,14 @@ def _ingerir(
     registros: Sequence[RegistroCsv] | Sequence[RegistroXlsx],
 ) -> Snapshot:
     caminho: Path | None = None
+    linhas_invalidas: list[str] = []
     try:
         snapshot = _criar_snapshot(sessao, tipo_arquivo, nome_arquivo)
         caminho = _salvar_arquivo_bruto(snapshot, conteudo)
         if tipo_arquivo == "csv":
             _persistir_csv(sessao, snapshot, registros)  # type: ignore[arg-type]
         else:
-            _persistir_xlsx(sessao, snapshot, registros)  # type: ignore[arg-type]
+            linhas_invalidas = _persistir_xlsx(sessao, snapshot, registros).linhas_invalidas  # type: ignore[arg-type]
         sessao.commit()
     except Exception:
         sessao.rollback()
@@ -173,6 +199,7 @@ def _ingerir(
             caminho.unlink(missing_ok=True)
         raise
     sessao.refresh(snapshot)
+    snapshot.linhas_invalidas = linhas_invalidas
     return snapshot
 
 
@@ -212,8 +239,6 @@ def reprocessar_snapshot(sessao: Session, snapshot: Snapshot) -> None:
         esperado_debitos = len(registros)
     elif snapshot.tipo_arquivo == "xlsx":
         registros = parse_xlsx(conteudo)
-        esperado_observacoes = len(registros)
-        esperado_debitos = sum(len(registro.debitos) for registro in registros)
     else:
         raise ErroIngestao(f"tipo de arquivo invalido no snapshot {snapshot.id}")
 
@@ -222,7 +247,16 @@ def reprocessar_snapshot(sessao: Session, snapshot: Snapshot) -> None:
         if snapshot.tipo_arquivo == "csv":
             _persistir_csv(sessao, snapshot, registros)  # type: ignore[arg-type]
         else:
-            _persistir_xlsx(sessao, snapshot, registros)  # type: ignore[arg-type]
+            resultado = _persistir_xlsx(sessao, snapshot, registros)  # type: ignore[arg-type]
+            esperado_observacoes = resultado.observacoes_persistidas
+            esperado_debitos = resultado.debitos_persistidos
+            if resultado.linhas_invalidas:
+                logger.warning(
+                    "snapshot %s: %d linha(s) com documento invalido ignoradas ao reprocessar: %s",
+                    snapshot.id,
+                    len(resultado.linhas_invalidas),
+                    "; ".join(resultado.linhas_invalidas),
+                )
         sessao.flush()
         observacoes_persistidas = sessao.scalar(
             select(func.count(ObservacaoEntidade.id)).where(

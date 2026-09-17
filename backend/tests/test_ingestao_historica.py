@@ -77,6 +77,56 @@ def test_upload_xlsx_rejeita_documento_em_branco(cliente):
     assert cliente.get("/api/snapshots").json() == []
 
 
+def test_upload_xlsx_pula_linha_com_documento_invalido_e_persiste_as_demais(cliente):
+    snapshot = _upload_xlsx(
+        cliente,
+        "documento-invalido_20260915_100000.xlsx",
+        [
+            _linha_xlsx("12345678901", "ANA LIMA", "ATIVO", "REG 1"),
+            _linha_xlsx("123456", "DOC INVALIDO", "ATIVO", "REG 2"),
+            _linha_xlsx("98765432100", "JOAO SILVA", "ATIVO", "REG 3"),
+        ],
+    )
+
+    assert snapshot["linhas_invalidas"] == [
+        "linha 3 (DOC INVALIDO): CPF/CNPJ deve conter 11 ou 14 digitos"
+    ]
+    itens = _debitos(cliente, snapshot["id"])["items"]
+    assert len(itens) == 2
+
+
+def test_reprocessamento_de_snapshot_com_linha_invalida_nao_diverge(cliente):
+    snapshot = _upload_xlsx(
+        cliente,
+        "reprocessar-com-invalida_20260915_100000.xlsx",
+        [
+            _linha_xlsx("12345678901", "ANA LIMA", "ATIVO", "REG 1"),
+            _linha_xlsx("123456", "DOC INVALIDO", "ATIVO", "REG 2"),
+        ],
+    )
+
+    with SessionLocal() as sessao:
+        snapshot_modelo = sessao.get(Snapshot, snapshot["id"])
+        ingestion.reprocessar_snapshot(sessao, snapshot_modelo)
+
+    itens = _debitos(cliente, snapshot["id"])["items"]
+    assert len(itens) == 1
+
+
+def test_upload_xlsx_aborta_quando_todas_as_linhas_tem_documento_invalido(cliente):
+    conteudo = construir_xlsx_registros(
+        [_linha_xlsx("123456", "DOC INVALIDO", "ATIVO", "REG 1")]
+    )
+
+    resposta = cliente.post(
+        "/api/uploads/xlsx",
+        files={"arquivo": ("todas-invalidas.xlsx", conteudo, "application/octet-stream")},
+    )
+
+    assert resposta.status_code == 422
+    assert cliente.get("/api/snapshots").json() == []
+
+
 def test_falha_apos_commit_nao_remove_arquivo_bruto_confirmado(cliente, tmp_path, monkeypatch):
     monkeypatch.setenv("RAW_UPLOADS_DIR", str(tmp_path))
     refresh_original = Session.refresh

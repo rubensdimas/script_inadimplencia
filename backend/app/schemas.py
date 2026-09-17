@@ -12,6 +12,7 @@ class SnapshotOut(BaseModel):
     nome_arquivo_original: str
     data_snapshot: datetime
     data_upload: datetime
+    linhas_invalidas: list[str] = []
 
 
 class EntidadeResumoOut(BaseModel):

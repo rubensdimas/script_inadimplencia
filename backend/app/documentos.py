@@ -7,6 +7,8 @@ def normalizar_documento(documento: str | None) -> str | None:
     if documento is None or not documento.strip():
         return None
     normalizado = re.sub(r"\D", "", documento)
+    if normalizado.strip("0") == "":
+        return None
     if len(normalizado) not in (11, 14):
         raise ErroIngestao("CPF/CNPJ deve conter 11 ou 14 digitos")
     return normalizado

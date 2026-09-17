@@ -26,6 +26,7 @@ class RegistroDebitoXlsx:
 
 @dataclass
 class RegistroXlsx:
+    linha: int
     nome_original: str
     cpf_cnpj: str | None
     tipo_pessoa: str | None
@@ -91,6 +92,7 @@ def parse_xlsx(conteudo: bytes) -> list[RegistroXlsx]:
             linhas_sem_documento.append(f"linha {numero} ({nome})")
             continue
         registro = RegistroXlsx(
+            linha=numero,
             nome_original=nome,
             cpf_cnpj=cpf_cnpj,
             tipo_pessoa=_texto(linha[indice["TipoPessoa"]]),
