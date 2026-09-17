@@ -12,7 +12,14 @@ export function UploadsPage() {
           novo snapshot histórico.
         </p>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      {/*
+        grid-cols-1 explicito na base: sem ele, abaixo de md: o grid cria uma
+        coluna implicita dimensionada pelo conteudo (nao 1fr), e o
+        <input type="file"> nativo dentro do UploadCard (que tem uma largura
+        minima intrinseca que CSS nao consegue encolher) forcava a pagina
+        inteira a alargar no mobile. Ver docs/DESIGN.md.
+      */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <UploadCard
           tipoArquivo="csv"
           titulo="CSV analítico"

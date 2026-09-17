@@ -155,6 +155,13 @@ Construídos com Recharts seguindo o skill `dataviz`:
   os primeiros importam. A pergunta que decide entre as duas é "a pessoa precisa
   processar tudo, ou só ver quem está no topo?".
 
+- `situacao_divida_ativa` de um débito não é um booleano — só `"Administrativa"` e
+  `"Executiva"` são divida ativa de verdade; o campo também carrega valores como
+  `"Não lançado"` quando o débito nunca entrou em cobrança (o caso comum, não uma
+  situação grave). Usar `ehDividaAtiva()` (`src/lib/divida-ativa.ts`), nunca
+  `situacao ? <Badge>... : null` direto — isso já pintou um badge de "atenção" no
+  débito mais comum e inofensivo do histórico de uma entidade.
+
 ## Erros conhecidos evitados (não repetir)
 
 - Margem negativa (`margin.left: -N`) combinada com `YAxis width` apertado corta os
@@ -164,3 +171,24 @@ Construídos com Recharts seguindo o skill `dataviz`:
   largura da página no mobile exatamente como o grid sem coluna base — o mecanismo é
   diferente (tabela não tem "coluna base" de grid), mas o teste é o mesmo: sempre
   conferir a tela mais estreita antes de considerar um componente pronto.
+- Um `<input type="file">` nativo tem uma largura mínima intrínseca (o texto
+  "Nenhum arquivo escolhido" não encolhe nem quebra linha, e não é algo que CSS
+  consiga truncar) — isso por si só não é o problema; o problema de novo é um grid
+  ancestral sem coluna base explícita (`grid gap-6 md:grid-cols-2` em vez de
+  `grid grid-cols-1 gap-6 md:grid-cols-2`), que deixa essa largura mínima vazar para
+  a página inteira. Esse bug já existia em Uploads desde a Tarefa 4 fatia 1, sem
+  ninguém notar, porque a tela nunca tinha sido conferida em largura estreita depois
+  daquela fatia — a lição não é só "declare a coluna base", é "depois de aprender um
+  padrão de bug, faça uma varredura (`grep`) nas telas mais antigas do projeto em vez
+  de confiar que elas já estavam certas".
+- **O headless Chrome (`--window-size`) tem um piso de viewport de ~500px**: pedir
+  uma largura menor (390px, 420px) não redimensiona o layout de verdade — a página é
+  desenhada a ~500px e o PNG só é recortado no tamanho pedido, fazendo qualquer coisa
+  perto da borda direita parecer cortada mesmo sem bug nenhum. Isso gerou uma sessão
+  inteira de investigação de um "vazamento" em Entidades que não existia (confirmado
+  injetando `window.innerWidth`/`scrollWidth` como texto na própria página: ambos
+  bateram em 500, sem elemento mais largo que a viewport). **Nunca testar mobile via
+  `--window-size` abaixo de ~500px** — usar 500px como o piso confiável, e se for
+  preciso confirmar uma largura menor de verdade, medir `document.documentElement.
+  scrollWidth` via um elemento de depuração temporário em vez de confiar no recorte
+  visual do screenshot.

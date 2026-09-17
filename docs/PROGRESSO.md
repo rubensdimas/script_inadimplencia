@@ -53,7 +53,7 @@ Commits principais:
 - Python: `python -m compileall -q app alembic tests` concluiu com sucesso.
 - Alembic: `alembic current` indicou `0002_historical_observations (head)`.
 - Alembic: `alembic check` informou `No new upgrade operations detected`.
-- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `20 passed`, dentro e fora do Docker.
+- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `29 passed`, dentro e fora do Docker.
 - Frontend: `npm run build` (`tsc -b && vite build`) concluiu sem erros, dentro e fora do Docker.
 - Smoke test manual: stack subida via `docker compose up -d`, proxy `/api` do Vite confirmado ponta a ponta contra o backend real (`GET /api/snapshots` via `http://localhost:5173/api/snapshots`).
 - Validacao exploratoria local, sem versionar dados reais:
@@ -117,10 +117,24 @@ Dois achados reais de captura de tela, corrigidos antes de fechar:
 
 Testes de componente cobrem contagem por aba, troca de conteudo ao trocar de aba, a tabela de candidatos ambiguos, filtro de busca, URL de exportacao com o par de snapshots resolvido pela API e estado de erro.
 
+## Tarefa 5 (fatia 2 - Entidades): concluida
+
+Diferente de Pendencias: `/api/entities` ja pagina e filtra no servidor (nao e uma lista fixa por par de snapshots), entao o desenho aqui e busca+filtro+paginacao classicos, com uma tela de detalhe separada (`/entidades/:id`) para o historico completo de uma entidade — cadastral (mudancas de situacao entre snapshots) e de debitos (sem corte "top N": aqui e uma investigacao de uma entidade so, o historico inteiro e o ponto).
+
+Decisoes: estado de busca/filtros/pagina na URL (mesmo padrao ja usado); debounce de 300ms no campo de nome (filtros de select trocam a URL na hora, sem debounce); lista de situacoes cadastrais do filtro e curada a partir dos valores reais ja vistos em producao (mesmo padrao do `corTipoDebito`); exportacao por link direto, reaproveitando o padrao de Pendencias.
+
+Quatro achados reais, tres deles corrigidos so nesta tarefa mas cujo mecanismo ja existia antes sem ninguem notar:
+
+- **Divida ativa mal classificada:** a tela de detalhe mostra o historico de debitos bruto (unica tela que faz isso — Dashboard e Pendencias so recebem dados ja agregados/filtrados pelo backend). O campo `situacao_divida_ativa` carrega `"Nao lancado"` para debitos que nunca entraram em cobranca, e o codigo tratava qualquer valor nao-nulo como "divida ativa" — colorindo o caso mais comum e inofensivo do historico como se fosse grave. Corrigido com `ehDividaAtiva()` (`src/lib/divida-ativa.ts`), espelhando a regra exata do backend (`_em_divida_ativa` em `analytics.py`).
+- **Bug pre-existente em Uploads (Tarefa 4 fatia 1) descoberto por uma varredura, nao por acaso:** ao investigar um overflow horizontal na propria tela de Entidades, uma varredura (`grep`) por todo grid responsivo do projeto revelou que `UploadsPage.tsx` tinha exatamente o mesmo bug de "grid sem coluna base" que ja tinha sido documentado no Dashboard — so que nunca corrigido ali, porque a tela nunca foi reconferida em largura estreita depois daquela fatia. Corrigido (`grid grid-cols-1 gap-6 md:grid-cols-2`). Licao registrada em `docs/DESIGN.md`: depois de aprender um padrao de bug, varrer as telas mais antigas em vez de assumir que ja estavam certas.
+- **Metodologia de teste com falha propria:** boa parte da investigacao acima nasceu de um falso positivo — o Chrome headless tem um piso de viewport de ~500px; pedir `--window-size` menor nao redimensiona o layout de verdade, so recorta o PNG no tamanho pedido. Confirmado injetando `window.innerWidth`/`scrollWidth` como texto na propria pagina (ambos bateram em 500, sem elemento mais largo que a viewport). Registrado em `docs/DESIGN.md`: nunca testar mobile via `--window-size` abaixo de ~500px.
+- **Categoria de Empresa redundante** (mesmo padrao ja corrigido em Pendencias): oculta quando `categoria` so repete `tipo_pessoa`.
+
+Testes de componente cobrem listagem, busca com debounce, filtro imediato por tipo de pessoa, estado vazio, navegacao para o detalhe, paginacao, resumo cadastral do detalhe e a classificacao correta de divida ativa na tabela de debitos.
+
 ## Proximas etapas
 
-1. Tarefa 5: tela de Entidades (busca/filtro/paginacao/detalhe historico por profissional/empresa).
-2. Tarefa 5: Playwright cobrindo upload, troca de snapshots, dashboard, busca, pendencias e exportacao; validacao de viewports desktop/mobile.
+1. Tarefa 5: Playwright cobrindo upload, troca de snapshots, dashboard, busca, pendencias e exportacao; validacao de viewports desktop/mobile.
 
 O plano detalhado esta em [`docs/superpowers/plans/2026-09-15-crefito11-conclusao-sistema.md`](superpowers/plans/2026-09-15-crefito11-conclusao-sistema.md).
 

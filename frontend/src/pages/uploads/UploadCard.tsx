@@ -49,16 +49,24 @@ export function UploadCard({ tipoArquivo, titulo, descricao, accept, enviar }: U
             if (arquivo) upload.mutate(arquivo);
           }}
         >
-          <label className="flex-1">
+          {/*
+            min-w-0: um <input type="file"> nativo tem uma largura minima
+            intrinseca (o texto "Nenhum arquivo escolhido" nao encolhe nem
+            quebra linha, e nao e algo que CSS consiga truncar). Sem min-w-0
+            no item flex, essa largura minima forcava o form inteiro (e o
+            botao Enviar ao lado, que estica pela largura do form) para alem
+            da viewport em telas estreitas.
+          */}
+          <label className="min-w-0 flex-1">
             <span className="sr-only">Selecionar arquivo {tipoArquivo.toUpperCase()}</span>
             <input
               type="file"
               accept={accept}
               onChange={(evento) => setArquivo(evento.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80"
+              className="block w-full max-w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80"
             />
           </label>
-          <Button type="submit" disabled={!arquivo || upload.isPending}>
+          <Button type="submit" disabled={!arquivo || upload.isPending} className="shrink-0">
             {upload.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Enviar
           </Button>

@@ -8,10 +8,20 @@ export type Pendencias = components["schemas"]["PendenciasPareamentoOut"];
 export type NomeAmbiguo = components["schemas"]["NomeAmbiguoOut"];
 export type DatasetExportacao = "ranking" | "comparisons" | "entities" | "matching-issues";
 export type FormatoExportacao = "csv" | "xlsx";
+export type PaginaEntidades = components["schemas"]["PaginaEntidadesOut"];
+export type EntidadeDetalhe = components["schemas"]["EntidadeDetalheOut"];
 
 interface ParametrosSnapshotPar {
   csvSnapshotId?: number;
   xlsxSnapshotId?: number;
+}
+
+export interface ParametrosBuscaEntidades {
+  query?: string;
+  tipoPessoa?: string;
+  situacaoRegistro?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 /**
@@ -111,6 +121,21 @@ export function obterPendencias(parametros: ParametrosSnapshotPar = {}): Promise
   return request<Pendencias>(`/api/matching-issues${query ? `?${query}` : ""}`);
 }
 
+export function buscarEntidades(parametros: ParametrosBuscaEntidades = {}): Promise<PaginaEntidades> {
+  const params = new URLSearchParams();
+  if (parametros.query) params.set("query", parametros.query);
+  if (parametros.tipoPessoa) params.set("tipo_pessoa", parametros.tipoPessoa);
+  if (parametros.situacaoRegistro) params.set("situacao_registro", parametros.situacaoRegistro);
+  if (parametros.page !== undefined) params.set("page", String(parametros.page));
+  if (parametros.pageSize !== undefined) params.set("page_size", String(parametros.pageSize));
+  const query = params.toString();
+  return request<PaginaEntidades>(`/api/entities${query ? `?${query}` : ""}`);
+}
+
+export function obterEntidadeDetalhe(entidadeId: number): Promise<EntidadeDetalhe> {
+  return request<EntidadeDetalhe>(`/api/entities/${entidadeId}`);
+}
+
 /**
  * Monta a URL de download de um dataset exportavel. E so um `<a href>`: a
  * resposta ja vem com Content-Disposition:attachment, entao o navegador cuida
@@ -124,4 +149,17 @@ export function urlExportacao(
   const params = paramsSnapshotPar(parametros);
   params.set("format", formato);
   return `/api/exports/${dataset}?${params.toString()}`;
+}
+
+/** O dataset `entities` usa os mesmos filtros da busca, nao um par de snapshots. */
+export function urlExportacaoEntidades(
+  formato: FormatoExportacao,
+  parametros: Pick<ParametrosBuscaEntidades, "query" | "tipoPessoa" | "situacaoRegistro"> = {},
+): string {
+  const params = new URLSearchParams();
+  if (parametros.query) params.set("query", parametros.query);
+  if (parametros.tipoPessoa) params.set("tipo_pessoa", parametros.tipoPessoa);
+  if (parametros.situacaoRegistro) params.set("situacao_registro", parametros.situacaoRegistro);
+  params.set("format", formato);
+  return `/api/exports/entities?${params.toString()}`;
 }

@@ -2,8 +2,9 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { EntidadeDetalhePage } from "@/pages/entidades/EntidadeDetalhePage";
+import { EntidadesPage } from "@/pages/entidades/EntidadesPage";
 import { PendenciasPage } from "@/pages/pendencias/PendenciasPage";
-import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { UploadsPage } from "@/pages/uploads/UploadsPage";
 
 // Recharts sozinho responde pela maior parte do bundle; so a tela de
@@ -25,12 +26,8 @@ function App() {
           }
         />
         <Route path="uploads" element={<UploadsPage />} />
-        <Route
-          path="entidades"
-          element={
-            <PlaceholderPage titulo="Entidades" descricao="Busca, filtros, paginação e histórico por profissional/empresa." />
-          }
-        />
+        <Route path="entidades" element={<EntidadesPage />} />
+        <Route path="entidades/:entidadeId" element={<EntidadeDetalhePage />} />
         <Route path="pendencias" element={<PendenciasPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

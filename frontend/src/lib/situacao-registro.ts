@@ -10,3 +10,21 @@ export function ehSituacaoDeAtencao(situacaoRegistro: string | null | undefined)
   if (!situacaoRegistro) return false;
   return SITUACOES_DE_ATENCAO.has(situacaoRegistro.toUpperCase());
 }
+
+/**
+ * Situacoes cadastrais reais observadas nos dados de producao do CREFITO11
+ * (nao ha endpoint que liste os valores distintos). Usado para popular o
+ * filtro da busca de entidades; uma situacao fora desta lista continua
+ * aparecendo normalmente nos resultados, so nao tem atalho no filtro.
+ */
+export const SITUACOES_REGISTRO_CONHECIDAS = [
+  "ATIVO",
+  "BAIXADO",
+  "TRANSFERIDO",
+  "CANCELADO",
+  "SUSPENSO",
+  "PROCESSO DE INSCRIÇÃO",
+  "VENCIDO",
+  "REQUERIMENTO POR TRANSFERÊNCIA",
+  "INDEVIDO",
+];
