@@ -127,8 +127,40 @@ Construídos com Recharts seguindo o skill `dataviz`:
 - Tooltip customizado (`ChartTooltip` em `chart-utils.tsx`) no vocabulário visual do
   app — nunca o balão branco padrão do Recharts.
 
+## Padrões reutilizáveis entre telas
+
+- `src/components/SnapshotPicker.tsx` — par de seletores CSV/XLSX; usado pelo
+  Dashboard e por Pendências (ambos comparam um par de snapshots). Foi movido de
+  `pages/dashboard/` para `components/` quando ganhou o segundo uso — mover só
+  quando um segundo consumidor real aparece, não antecipadamente.
+- `src/lib/situacao-registro.ts` (`ehSituacaoDeAtencao`) — mesma regra usada no
+  cruzamento situação cadastral × débito (Dashboard) e nas linhas de pendência: uma
+  entidade com registro já encerrado (BAIXADO/TRANSFERIDO/CANCELADO/SUSPENSO) ganha
+  o badge `warning`, nunca decorativo.
+- `src/lib/normalizar.ts` (`normalizarTexto`) — mesma normalização de nome do
+  backend (maiúsculo, sem acento), usada tanto para colorir por tipo de débito
+  quanto para o filtro de busca em Pendências, para que buscar "jose" encontre
+  "José" como o backend também encontraria.
+- Tabs (`src/components/ui/tabs.tsx`) só se justificam quando o conteúdo é
+  categorias genuinamente distintas que a pessoa revisa em momentos separados — em
+  Pendências, "somente CSV" (0), "somente XLSX" (1.138) e "nomes ambíguos" (28) têm
+  volumes tão diferentes que uma lista única seria dominada pelo maior grupo.
+- Uma comparação lado a lado com o mesmo conjunto fixo de atributos (candidatos de
+  um nome ambíguo) é o caso legítimo de usar `<table>` — não é o "meta separado por
+  ponto médio" genérico, é uma estrutura real de colunas comparáveis. Envolver a
+  tabela em `overflow-x-auto` (não empilhar as colunas) preserva o alinhamento que
+  torna a comparação possível, mesmo em mobile.
+- Uma lista que existe para o usuário *revisar item a item* (Pendências) leva busca
+  por nome, não corte para "top N" — ao contrário de um ranking (Dashboard), onde só
+  os primeiros importam. A pergunta que decide entre as duas é "a pessoa precisa
+  processar tudo, ou só ver quem está no topo?".
+
 ## Erros conhecidos evitados (não repetir)
 
 - Margem negativa (`margin.left: -N`) combinada com `YAxis width` apertado corta os
   dígitos mais significativos do rótulo (`"15000"` vira só `"00"` visível). Usar
   `margin.left: 0` e dimensionar `YAxis width` para o maior rótulo esperado.
+- Uma tabela larga (várias colunas fixas) sem `overflow-x-auto` próprio estoura a
+  largura da página no mobile exatamente como o grid sem coluna base — o mecanismo é
+  diferente (tabela não tem "coluna base" de grid), mas o teste é o mesmo: sempre
+  conferir a tela mais estreita antes de considerar um componente pronto.

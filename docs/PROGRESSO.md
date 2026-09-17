@@ -53,7 +53,7 @@ Commits principais:
 - Python: `python -m compileall -q app alembic tests` concluiu com sucesso.
 - Alembic: `alembic current` indicou `0002_historical_observations (head)`.
 - Alembic: `alembic check` informou `No new upgrade operations detected`.
-- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `14 passed`, dentro e fora do Docker.
+- Frontend: `npm run test` (Vitest + Testing Library + MSW) resultou em `20 passed`, dentro e fora do Docker.
 - Frontend: `npm run build` (`tsc -b && vite build`) concluiu sem erros, dentro e fora do Docker.
 - Smoke test manual: stack subida via `docker compose up -d`, proxy `/api` do Vite confirmado ponta a ponta contra o backend real (`GET /api/snapshots` via `http://localhost:5173/api/snapshots`).
 - Validacao exploratoria local, sem versionar dados reais:
@@ -98,9 +98,28 @@ Tres achados reais encontrados por captura de tela (nao so leitura de codigo) e 
 
 Testes de componente cobrem indicadores formatados, corte do ranking com contagem do restante, estado de erro (`ApiError`) e troca de snapshot atualizando a URL e refazendo a busca; graficos (Recharts) ficam fora da cobertura de unidade (jsdom nao mede layout real) e vao para o Playwright da Tarefa 5.
 
+## Tarefa 5 (fatia 1 - Pendencias de pareamento): concluida
+
+Primeira tela da Tarefa 5, comecando por Pendencias a pedido do usuario (Entidades fica para a proxima fatia). Reaproveita a identidade visual do Dashboard sem introduzir paleta/tipografia nova — a fatia de design aqui foi decidir a forma do conteudo, nao a cor.
+
+Decisoes de design especificas desta tela:
+
+- **Abas, nao secoes empilhadas:** os 3 grupos da API (`somente_csv`, `somente_xlsx`, `nomes_ambiguos`) tem volumes reais muito diferentes (0 / 1.138 / 28 no par de snapshots de teste) e sao revisados em momentos separados — uma lista unica seria dominada pelo maior grupo.
+- **Nomes ambiguos como tabela, nao lista achatada:** um nome do CSV que bate com varios cadastros do XLSX e uma comparacao lado a lado sobre o mesmo conjunto fixo de atributos (tipo, categoria, registro, situacao, documento) — um uso legitimo de `<table>`, nao o "meta separado por ponto medio" generico.
+- **Busca por nome, sem corte "top N":** ao contrario do ranking do Dashboard (so os primeiros importam), Pendencias existe para a pessoa processar item a item; corte esconderia trabalho pendente. A busca normaliza o texto do mesmo jeito que o backend (maiusculo, sem acento) para nao exigir digitar acento certo.
+- **Exportacao por link direto** (`<a href="/api/exports/matching-issues?...">`), sem fetch/blob no cliente — a resposta ja vem com `Content-Disposition:attachment`.
+- Componentes promovidos a compartilhados quando ganharam o segundo uso real: `SnapshotPicker` (Dashboard + Pendencias) e a regra de "situacao cadastral de atencao" (`ehSituacaoDeAtencao`, usada no cruzamento do Dashboard e nas linhas de pendencia).
+
+Dois achados reais de captura de tela, corrigidos antes de fechar:
+
+- **Categoria redundante:** para `tipo_pessoa: "Empresa"`, `categoria` e sempre `"EMPRESA"` — mostrar os dois juntos ("Empresa EMPRESA") repetia a mesma informacao. Corrigido ocultando a categoria quando ela nao distingue nada alem do tipo.
+- **Tabela de nomes ambiguos estourava a largura no mobile:** 5 colunas fixas nao cabem em ~390-500px. Corrigido com `overflow-x-auto` na propria tabela (ela rola dentro da caixa, as colunas continuam alinhadas) em vez de empilhar — um mecanismo diferente do bug de grid do Dashboard, mas a mesma disciplina de sempre conferir a largura mais estreita antes de considerar pronto.
+
+Testes de componente cobrem contagem por aba, troca de conteudo ao trocar de aba, a tabela de candidatos ambiguos, filtro de busca, URL de exportacao com o par de snapshots resolvido pela API e estado de erro.
+
 ## Proximas etapas
 
-1. Tarefa 5: telas de Entidades (busca/filtro/paginacao/detalhe historico) e Pendencias de pareamento; acoes de exportacao nas telas relevantes.
+1. Tarefa 5: tela de Entidades (busca/filtro/paginacao/detalhe historico por profissional/empresa).
 2. Tarefa 5: Playwright cobrindo upload, troca de snapshots, dashboard, busca, pendencias e exportacao; validacao de viewports desktop/mobile.
 
 O plano detalhado esta em [`docs/superpowers/plans/2026-09-15-crefito11-conclusao-sistema.md`](superpowers/plans/2026-09-15-crefito11-conclusao-sistema.md).

@@ -4,6 +4,10 @@ export type Snapshot = components["schemas"]["SnapshotOut"];
 export type TipoArquivo = "csv" | "xlsx";
 export type EntidadeResumo = components["schemas"]["EntidadeResumoOut"];
 export type Dashboard = components["schemas"]["DashboardOut"];
+export type Pendencias = components["schemas"]["PendenciasPareamentoOut"];
+export type NomeAmbiguo = components["schemas"]["NomeAmbiguoOut"];
+export type DatasetExportacao = "ranking" | "comparisons" | "entities" | "matching-issues";
+export type FormatoExportacao = "csv" | "xlsx";
 
 interface ParametrosSnapshotPar {
   csvSnapshotId?: number;
@@ -100,4 +104,24 @@ function paramsSnapshotPar({ csvSnapshotId, xlsxSnapshotId }: ParametrosSnapshot
 export function obterDashboard(parametros: ParametrosSnapshotPar = {}): Promise<Dashboard> {
   const query = paramsSnapshotPar(parametros).toString();
   return request<Dashboard>(`/api/dashboard${query ? `?${query}` : ""}`);
+}
+
+export function obterPendencias(parametros: ParametrosSnapshotPar = {}): Promise<Pendencias> {
+  const query = paramsSnapshotPar(parametros).toString();
+  return request<Pendencias>(`/api/matching-issues${query ? `?${query}` : ""}`);
+}
+
+/**
+ * Monta a URL de download de um dataset exportavel. E so um `<a href>`: a
+ * resposta ja vem com Content-Disposition:attachment, entao o navegador cuida
+ * do download nativamente, sem precisar de fetch/blob no cliente.
+ */
+export function urlExportacao(
+  dataset: DatasetExportacao,
+  formato: FormatoExportacao,
+  parametros: ParametrosSnapshotPar = {},
+): string {
+  const params = paramsSnapshotPar(parametros);
+  params.set("format", formato);
+  return `/api/exports/${dataset}?${params.toString()}`;
 }

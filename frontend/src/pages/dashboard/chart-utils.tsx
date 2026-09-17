@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { normalizarTexto } from "@/lib/normalizar";
+
 /**
  * Cor categorica fixa por tipo de debito (identidade, nao ranking) - os 5
  * slots validados para seguranca de daltonismo pelo skill de dataviz, na
@@ -15,15 +17,8 @@ const ORDEM_TIPOS_DEBITO: Record<string, string> = {
   "MULTA ETICA": "hsl(var(--cat-5))",
 };
 
-function normalizar(texto: string): string {
-  return texto
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
-
 export function corTipoDebito(tipo: string): string {
-  return ORDEM_TIPOS_DEBITO[normalizar(tipo)] ?? "hsl(var(--muted-foreground))";
+  return ORDEM_TIPOS_DEBITO[normalizarTexto(tipo)] ?? "hsl(var(--muted-foreground))";
 }
 
 export const CHART_TOKENS = {

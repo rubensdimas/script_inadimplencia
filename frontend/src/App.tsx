@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { PendenciasPage } from "@/pages/pendencias/PendenciasPage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
 import { UploadsPage } from "@/pages/uploads/UploadsPage";
 
@@ -30,15 +31,7 @@ function App() {
             <PlaceholderPage titulo="Entidades" descricao="Busca, filtros, paginação e histórico por profissional/empresa." />
           }
         />
-        <Route
-          path="pendencias"
-          element={
-            <PlaceholderPage
-              titulo="Pendências de pareamento"
-              descricao="Nomes que não bateram exatamente entre CSV e XLSX no par de snapshots selecionado."
-            />
-          }
-        />
+        <Route path="pendencias" element={<PendenciasPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

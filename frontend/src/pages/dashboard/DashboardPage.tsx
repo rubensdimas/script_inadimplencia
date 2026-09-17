@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
 import { ApiError, listarSnapshots, obterDashboard } from "@/api/client";
+import { SnapshotPicker } from "@/components/SnapshotPicker";
 import { Alert } from "@/components/ui/alert";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 
@@ -11,7 +12,6 @@ import { IndicadoresStrip } from "./IndicadoresStrip";
 import { RankingList } from "./RankingList";
 import { SerieHistoricaChart } from "./SerieHistoricaChart";
 import { SituacaoCadastralPanel } from "./SituacaoCadastralPanel";
-import { SnapshotPicker } from "./SnapshotPicker";
 
 const CHAVE_CSV = "csv_snapshot_id";
 const CHAVE_XLSX = "xlsx_snapshot_id";
