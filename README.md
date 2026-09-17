@@ -143,6 +143,12 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm \
   backend python -m pytest tests -v
 ```
 
+Execute os testes do frontend:
+
+```bash
+docker compose run --rm --no-deps frontend npm run test
+```
+
 Execute o build do frontend:
 
 ```bash
