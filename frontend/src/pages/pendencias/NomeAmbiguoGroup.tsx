@@ -13,12 +13,21 @@ interface NomeAmbiguoGroupProps {
  * existe para comparar o que os diferencia, nao para repetir o nome.
  */
 export function NomeAmbiguoGroup({ grupo }: NomeAmbiguoGroupProps) {
+  const tiposDistintos = new Set(
+    grupo.candidatos_xlsx.map((candidato) => candidato.tipo_pessoa).filter((tipo): tipo is string => Boolean(tipo)),
+  );
+  // Candidatos com tipo_pessoa diferente entre si (ex: um Profissional, um
+  // Empresa) costumam ser duas inscricoes legitimas da mesma pessoa (pessoa
+  // fisica e juridica), nao um erro de cadastro — o aviso reflete isso.
+  const provavelInscricaoDistinta = tiposDistintos.size > 1;
+
   return (
     <li className="px-6 py-4">
       <p className="text-sm font-semibold text-foreground">{grupo.nome_normalizado}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        Bate com {grupo.candidatos_xlsx.length} cadastros diferentes no XLSX — confira qual antes de tratar como o
-        mesmo profissional ou empresa.
+        {provavelInscricaoDistinta
+          ? `Bate com ${grupo.candidatos_xlsx.length} cadastros diferentes no XLSX, de tipos distintos (pessoa física e jurídica) — podem ser inscrições legítimas e separadas do mesmo profissional, confirme antes de decidir.`
+          : `Bate com ${grupo.candidatos_xlsx.length} cadastros diferentes no XLSX — confira qual antes de tratar como o mesmo profissional ou empresa.`}
       </p>
       {/* overflow-x-auto proprio da tabela: em telas estreitas ela rola dentro
           da propria caixa em vez de estourar a largura da pagina — mantem as
