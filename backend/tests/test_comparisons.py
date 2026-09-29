@@ -1,4 +1,11 @@
 from datetime import date
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import text
+
+from app.db import SessionLocal
 
 from tests.fixture_builders import construir_xlsx_registros
 
@@ -303,6 +310,67 @@ def test_comparacao_snapshot_inexistente_retorna_404(cliente):
 
 
 # --- /api/matching-issues (spec story 22) ----------------------------------
+
+
+def test_matching_issues_pareia_travessao_e_hifen_sem_ignorar_separador(cliente):
+    csv = _upload_csv(
+        cliente,
+        "csv_20260929.csv",
+        ["WESLEY MARQUES DE OLIVEIRA CENTRO DE ESTETICA EIRELI - ME;ANUIDADE;2026;0;01/01/2026;Débito"],
+    )
+    xlsx = _upload_xlsx(
+        cliente,
+        "xlsx_20260929_100000.xlsx",
+        [
+            _linha_xlsx("11111111111", "WESLEY MARQUES DE OLIVEIRA CENTRO DE ESTETICA EIRELI – ME"),
+            _linha_xlsx("22222222222", "WESLEY MARQUES DE OLIVEIRA CENTRO DE ESTETICA EIRELI ME"),
+        ],
+    )
+
+    resposta = cliente.get(
+        "/api/matching-issues", params={"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": xlsx["id"]}
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+    assert corpo["somente_csv"] == []
+    assert [item["nome_original"] for item in corpo["somente_xlsx"]] == [
+        "WESLEY MARQUES DE OLIVEIRA CENTRO DE ESTETICA EIRELI ME"
+    ]
+    assert corpo["nomes_ambiguos"] == []
+
+
+def test_migracao_hifens_atualiza_chave_sem_recriar_observacoes_ou_debitos(cliente):
+    csv = _upload_csv(cliente, "csv_20260929.csv", ["EMPRESA - ME;ANUIDADE;2026;0;01/01/2026;Débito"])
+    xlsx = _upload_xlsx(
+        cliente,
+        "xlsx_20260929_100000.xlsx",
+        [_linha_xlsx("11111111111", "EMPRESA – ME", debitos=[{"ano": 2026, "tipo": "ANUIDADE"}])],
+    )
+    with SessionLocal.begin() as sessao:
+        observacoes = sessao.execute(
+            text("SELECT id, snapshot_id FROM observacoes_entidades ORDER BY id")
+        ).all()
+        sessao.execute(
+            text("UPDATE observacoes_entidades SET nome_normalizado = 'EMPRESA ME' WHERE snapshot_id = :id"),
+            {"id": xlsx["id"]},
+        )
+        debitos_antes = sessao.scalar(text("SELECT count(*) FROM debitos"))
+
+    parametros = {"csv_snapshot_id": csv["id"], "xlsx_snapshot_id": xlsx["id"]}
+    assert len(cliente.get("/api/matching-issues", params=parametros).json()["somente_csv"]) == 1
+
+    configuracao = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    command.stamp(configuracao, "0002_historical_observations")
+    command.upgrade(configuracao, "head")
+
+    with SessionLocal() as sessao:
+        assert sessao.execute(text("SELECT id, snapshot_id FROM observacoes_entidades ORDER BY id")).all() == observacoes
+        assert sessao.scalar(text("SELECT count(*) FROM debitos")) == debitos_antes
+        assert sessao.scalar(
+            text("SELECT nome_normalizado FROM observacoes_entidades WHERE snapshot_id = :id"),
+            {"id": xlsx["id"]},
+        ) == "EMPRESA - ME"
+    assert cliente.get("/api/matching-issues", params=parametros).json()["somente_csv"] == []
 
 
 def test_matching_issues_agrupa_pendencias_de_pareamento(cliente):

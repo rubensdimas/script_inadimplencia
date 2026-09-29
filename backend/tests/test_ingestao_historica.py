@@ -364,7 +364,7 @@ def test_banco_de_testes_esta_na_revisao_alembic_atual(cliente):
     with SessionLocal() as sessao:
         revisao = sessao.scalar(text("SELECT version_num FROM alembic_version"))
 
-    assert revisao == "0002_historical_observations"
+    assert revisao == "0003_normalize_name_dashes"
 
 
 def test_migracao_preserva_snapshots_e_converte_dados_legados(cliente):
@@ -496,7 +496,7 @@ def test_migracao_upgrade_direto_a_partir_de_banco_legado_sem_alembic_version(cl
     command.upgrade(config, "head")
 
     with engine.connect() as conexao:
-        assert conexao.scalar(text("SELECT version_num FROM alembic_version")) == "0002_historical_observations"
+        assert conexao.scalar(text("SELECT version_num FROM alembic_version")) == "0003_normalize_name_dashes"
         assert conexao.scalar(text("SELECT count(*) FROM snapshots")) == 1
         assert conexao.scalar(text("SELECT count(*) FROM debitos")) == 1
         assert conexao.scalar(text("SELECT count(*) FROM observacoes_entidades")) == 1
